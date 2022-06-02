@@ -6,21 +6,21 @@ LocalSpace::LocalSpace(uint8_t* vram, uint8_t* cgram)
 {}
 
 uint8_t* LocalSpace::vram_data() { return m_vram; }
-const uint32_t LocalSpace::vram_size() const { return 0x10000; }
+uint32_t LocalSpace::vram_size() const { return 0x10000; }
 
 uint8_t* LocalSpace::cgram_data() { return m_cgram; }
-const uint32_t LocalSpace::cgram_size() const { return 0x200; }
+uint32_t LocalSpace::cgram_size() const { return 0x200; }
 
 ExtraSpace::ExtraSpace() {}
 
 uint8_t* ExtraSpace::vram_data() { return vram; }
-const uint32_t ExtraSpace::vram_size() const { return 0x10000; }
+uint32_t ExtraSpace::vram_size() const { return 0x10000; }
 
 uint8_t* ExtraSpace::cgram_data() { return cgram; }
-const uint32_t ExtraSpace::cgram_size() const { return 0x200; }
+uint32_t ExtraSpace::cgram_size() const { return 0x200; }
 
-SpaceContainer::SpaceContainer(const std::shared_ptr<Space>& localSpace) :
-    m_localSpace(localSpace)
+SpaceContainer::SpaceContainer(std::shared_ptr<Space>  localSpace) :
+    m_localSpace(std::move(localSpace))
 {
   m_spaces.resize(MaxCount);
 }
@@ -31,7 +31,9 @@ void SpaceContainer::reset() {
 
 std::shared_ptr<Space> SpaceContainer::operator[](int index) {
   if (index > MaxCount) {
-    throw std::out_of_range("index out of range");
+    //throw std::out_of_range("index out of range");
+    fprintf(stderr, "ppux: SpaceContainer::operator[] index out of range\n");
+    return {};
   }
 
   if (index == 0) {
@@ -98,7 +100,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
     uint16_t len = *p++;
 
     if (p + len - start > end) {
-      fprintf(stderr, "draw_list: command length at index %ld exceeds size of command list; %lu > %u", p - start, p + len - start, end);
+      fprintf(stderr, "draw_list: command length at index %lld exceeds size of command list; %llu > %u", p - start, p + len - start, end);
       break;
     }
 
@@ -126,7 +128,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 11) {
-            fprintf(stderr, "draw_list: CMD_VRAM_TILE: incomplete command; %ld < %d\n", len-(d-args), 11);
+            fprintf(stderr, "draw_list: CMD_VRAM_TILE: incomplete command; %lld < %d\n", len-(d-args), 11);
             break;
           }
 
@@ -164,7 +166,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 4) {
-            fprintf(stderr, "draw_list: CMD_IMAGE: incomplete command; %ld < %d\n", len-(d-args), 4);
+            fprintf(stderr, "draw_list: CMD_IMAGE: incomplete command; %lld < %d\n", len-(d-args), 4);
             break;
           }
 
@@ -175,7 +177,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
 
           // check again after getting width and height:
           if (len - (d - args) < w*h) {
-            fprintf(stderr, "draw_list: CMD_IMAGE: incomplete command; %ld < %d\n", len-(d-args), w*h);
+            fprintf(stderr, "draw_list: CMD_IMAGE: incomplete command; %lld < %d\n", len-(d-args), w*h);
             break;
           }
 
@@ -187,7 +189,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 2) {
-            fprintf(stderr, "draw_list: CMD_COLOR_DIRECT_BGR555: incomplete command; %ld < %d\n", len-(d-args), 2);
+            fprintf(stderr, "draw_list: CMD_COLOR_DIRECT_BGR555: incomplete command; %lld < %d\n", len-(d-args), 2);
             break;
           }
 
@@ -211,7 +213,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 3) {
-            fprintf(stderr, "draw_list: CMD_COLOR_DIRECT_RGB888: incomplete command; %ld < %d\n", len-(d-args), 3);
+            fprintf(stderr, "draw_list: CMD_COLOR_DIRECT_RGB888: incomplete command; %lld < %d\n", len-(d-args), 3);
             break;
           }
 
@@ -248,7 +250,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 3) {
-            fprintf(stderr, "draw_list: CMD_COLOR_PALETTED: incomplete command; %ld < %d\n", len-(d-args), 3);
+            fprintf(stderr, "draw_list: CMD_COLOR_PALETTED: incomplete command; %lld < %d\n", len-(d-args), 3);
             break;
           }
 
@@ -294,7 +296,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 3) {
-            fprintf(stderr, "draw_list: CMD_TEXT_UTF8: incomplete command; %ld < %d\n", len-(d-args), 3);
+            fprintf(stderr, "draw_list: CMD_TEXT_UTF8: incomplete command; %lld < %d\n", len-(d-args), 3);
             break;
           }
 
@@ -314,7 +316,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
 
           // need a complete command:
           if (len - (d - args) < textwords) {
-            fprintf(stderr, "draw_list: CMD_TEXT_UTF8: incomplete text data; %ld < %d\n", len-(d-args), textwords);
+            fprintf(stderr, "draw_list: CMD_TEXT_UTF8: incomplete text data; %lld < %d\n", len-(d-args), textwords);
             break;
           }
 
@@ -337,7 +339,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 2) {
-            fprintf(stderr, "draw_list: CMD_PIXEL: incomplete command; %ld < %d\n", len-(d-args), 2);
+            fprintf(stderr, "draw_list: CMD_PIXEL: incomplete command; %lld < %d\n", len-(d-args), 2);
             break;
           }
 
@@ -352,7 +354,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 3) {
-            fprintf(stderr, "draw_list: CMD_HLINE: incomplete command; %ld < %d\n", len-(d-args), 3);
+            fprintf(stderr, "draw_list: CMD_HLINE: incomplete command; %lld < %d\n", len-(d-args), 3);
             break;
           }
 
@@ -368,7 +370,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 3) {
-            fprintf(stderr, "draw_list: CMD_VLINE: incomplete command; %ld < %d\n", len-(d-args), 3);
+            fprintf(stderr, "draw_list: CMD_VLINE: incomplete command; %lld < %d\n", len-(d-args), 3);
             break;
           }
 
@@ -376,7 +378,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
           y0 = (int16_t)*d++;
           h  = (int16_t)*d++;
 
-          m_renderer->draw_vline(x0, y0, w);
+          m_renderer->draw_vline(x0, y0, h);
         }
         break;
       }
@@ -384,7 +386,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 4) {
-            fprintf(stderr, "draw_list: CMD_LINE: incomplete command; %ld < %d\n", len-(d-args), 4);
+            fprintf(stderr, "draw_list: CMD_LINE: incomplete command; %lld < %d\n", len-(d-args), 4);
             break;
           }
 
@@ -401,7 +403,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 4) {
-            fprintf(stderr, "draw_list: CMD_RECT: incomplete command; %ld < %d\n", len-(d-args), 4);
+            fprintf(stderr, "draw_list: CMD_RECT: incomplete command; %lld < %d\n", len-(d-args), 4);
             break;
           }
 
@@ -418,7 +420,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         while (d - args < len) {
           // need a complete command:
           if (len - (d - args) < 4) {
-            fprintf(stderr, "draw_list: CMD_RECT_FILL: incomplete command; %ld < %d\n", len-(d-args), 4);
+            fprintf(stderr, "draw_list: CMD_RECT_FILL: incomplete command; %lld < %d\n", len-(d-args), 4);
             break;
           }
 
@@ -460,7 +462,9 @@ struct ByteArray {
   explicit ByteArray(const uint8_t* data, int size) {
     //printf("%p->ByteArray(%p, %d)\n", this, data, size);
     if (size < 0) {
-      throw std::invalid_argument("size cannot be negative");
+      //throw std::invalid_argument("size cannot be negative");
+      fprintf(stderr, "ppux: ByteArray(): size cannot be negative\n");
+      return;
     }
     m_data = new uint8_t[size];
     m_size = size;
@@ -507,7 +511,9 @@ struct ByteArray {
     }
 
     // todo:
-    throw std::runtime_error("unimplemented resize()");
+    //throw std::runtime_error("unimplemented resize()");
+    fprintf(stderr, "ppux: ByteArray: resize() unimplemented\n");
+    return *this;
   }
 
 private:
@@ -521,7 +527,7 @@ struct DataStream {
     BigEndian
   };
 
-  DataStream(const ByteArray& a) : m_a(a), p(a.data()) {}
+  explicit DataStream(const ByteArray& a) : m_a(a), p(a.data()), m_o(LittleEndian) {}
 
   DataStream& setByteOrder(ByteOrder o) {
     m_o = o;
@@ -675,26 +681,26 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
       glyphs.resize(count);
       for (uint16_t i = 0; i < count; i++) {
         uint8_t tmp;
-        int16_t left_sided_bearing;
-        int16_t right_side_bearing;
+        //int16_t left_sided_bearing;
+        //int16_t right_side_bearing;
         int16_t character_width;
-        int16_t character_ascent;
-        int16_t character_descent;
+        //int16_t character_ascent;
+        //int16_t character_descent;
 
         in >> tmp;
-        left_sided_bearing = (int16_t)tmp - 0x80;
+        //left_sided_bearing = (int16_t)tmp - 0x80;
 
         in >> tmp;
-        right_side_bearing = (int16_t)tmp - 0x80;
+        //right_side_bearing = (int16_t)tmp - 0x80;
 
         in >> tmp;
         character_width = (int16_t)tmp - 0x80;
 
         in >> tmp;
-        character_ascent = (int16_t)tmp - 0x80;
+        //character_ascent = (int16_t)tmp - 0x80;
 
         in >> tmp;
-        character_descent = (int16_t)tmp - 0x80;
+        //character_descent = (int16_t)tmp - 0x80;
 
         glyphs[i].m_width = character_width;
       }
@@ -786,7 +792,7 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
 
       //printf("[%3d]\n", i);
       int y = 0;
-      for (int k = 0; k < size; k += fontStride, y++) {
+      for (uint32_t k = 0; k < size; k += fontStride, y++) {
         uint32_t b;
         if (elemSize == 0) {
           uint8_t  w;
@@ -800,6 +806,9 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
           uint32_t w;
           bits >> w;
           b = w;
+        } else {
+          fprintf(stderr, "ppux: unaccounted elemSize case\n");
+          return;
         }
         bits.skipRawData(fontStride - elemBytes);
 
@@ -890,7 +899,9 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
     uint8_t hdr[4];
     in.readRawData(hdr, 4);
     if (strncmp((char *)hdr, "\1fcp", 4) != 0) {
-      throw std::runtime_error("expected PCF file format header not found");
+      //throw std::runtime_error("expected PCF file format header not found");
+      fprintf(stderr, "ppux: expected PCF file format header not found\n");
+      return;
     }
 
     // read little endian aka LSB first:
@@ -908,7 +919,7 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
 #define PCF_GLYPH_NAMES             (1<<7)
 #define PCF_BDF_ACCELERATORS        (1<<8)
 
-    for (int32_t t = 0; t < table_count; t++) {
+    for (uint32_t t = 0; t < table_count; t++) {
       int32_t type, table_format, size, offset;
       in >> type >> table_format >> size >> offset;
       //printf("%d %d %d %d\n", type, table_format, size, offset);
@@ -929,6 +940,8 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
           readEncodings(section);
           break;
         }
+        default:
+          break;
       }
     }
 

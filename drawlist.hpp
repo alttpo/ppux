@@ -17,20 +17,20 @@ private:
 
 struct Space {
   virtual uint8_t* vram_data() = 0;
-  virtual const uint32_t vram_size() const = 0;
+  virtual uint32_t vram_size() const = 0;
 
   virtual uint8_t* cgram_data() = 0;
-  virtual const uint32_t cgram_size() const = 0;
+  virtual uint32_t cgram_size() const = 0;
 };
 
 struct LocalSpace : public Space {
   LocalSpace(uint8_t* vram, uint8_t* cgram);
 
   uint8_t* vram_data() final;
-  const uint32_t vram_size() const final;
+  uint32_t vram_size() const final;
 
   uint8_t* cgram_data() final;
-  const uint32_t cgram_size() const final;
+  uint32_t cgram_size() const final;
 
 private:
   uint8_t* m_vram;
@@ -41,10 +41,10 @@ struct ExtraSpace : public Space {
   ExtraSpace();
 
   uint8_t* vram_data() final;
-  const uint32_t vram_size() const final;
+  uint32_t vram_size() const final;
 
   uint8_t* cgram_data() final;
-  const uint32_t cgram_size() const final;
+  uint32_t cgram_size() const final;
 
 private:
   uint8_t vram[0x10000];
@@ -54,7 +54,7 @@ private:
 struct SpaceContainer {
   static const int MaxCount = 1024;
 
-  SpaceContainer(const std::shared_ptr<Space>& localSpace);
+  explicit SpaceContainer(std::shared_ptr<Space> localSpace);
 
   void reset();
 
