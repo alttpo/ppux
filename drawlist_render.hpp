@@ -4,7 +4,7 @@ namespace DrawList {
 
 inline bool is_color_visible(uint16_t c) { return c < 0x8000; }
 
-template<unsigned width, unsigned height>
+template<int width, int height>
 inline bool bounds_check(int x, int y) {
   if (y < 0) return false;
   if (y >= height) return false;
@@ -13,7 +13,7 @@ inline bool bounds_check(int x, int y) {
   return true;
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_pixel(int x0, int y0, uint16_t color, PLOT plot) {
   if (!is_color_visible(color))
     return;
@@ -24,7 +24,7 @@ void draw_pixel(int x0, int y0, uint16_t color, PLOT plot) {
   plot(x0, y0, color);
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_hline(int x0, int y0, int w, uint16_t color, PLOT plot) {
   if (!is_color_visible(color))
     return;
@@ -40,7 +40,7 @@ void draw_hline(int x0, int y0, int w, uint16_t color, PLOT plot) {
   }
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_vline(int x0, int y0, int h, uint16_t color, PLOT plot) {
   if (!is_color_visible(color))
     return;
@@ -56,7 +56,7 @@ void draw_vline(int x0, int y0, int h, uint16_t color, PLOT plot) {
   }
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_rect(int x0, int y0, int w, int h, uint16_t color, PLOT plot) {
   if (!is_color_visible(color))
     return;
@@ -67,7 +67,7 @@ void draw_rect(int x0, int y0, int w, int h, uint16_t color, PLOT plot) {
   draw_vline<width, height>(x0+w-1, y0+1,   h-2, color, plot);
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_rect_fill(int x0, int y0, int w, int h, uint16_t fill_color, PLOT plot) {
   if (!is_color_visible(fill_color))
     return;
@@ -85,7 +85,7 @@ void draw_rect_fill(int x0, int y0, int w, int h, uint16_t fill_color, PLOT plot
   }
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
   if (!is_color_visible(color))
     return;
@@ -170,7 +170,7 @@ void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
   }
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 uint16_t* draw_image(int x0, int y0, int w, int h, uint16_t* d, PLOT plot) {
   for (int y = y0; y < y0+h; y++) {
     if (y < 0) {
@@ -212,13 +212,13 @@ void draw_vram_tile(
 ) {
   // draw tile:
   unsigned sy = y0;
-  for (unsigned ty = 0; ty < h; ty++, sy++) {
+  for (int ty = 0; ty < h; ty++, sy++) {
     sy &= 255;
 
     unsigned sx = x0;
     unsigned y = (vflip == false) ? (ty) : (h - 1 - ty);
 
-    for(unsigned tx = 0; tx < w; tx++, sx++) {
+    for(int tx = 0; tx < w; tx++, sx++) {
       sx &= 511;
       if(sx >= 256) continue;
 
@@ -294,7 +294,7 @@ void draw_vram_tile(
   }
 }
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 struct Outliner {
   Outliner(PLOT& p_plot) : plot(p_plot) {}
 
@@ -330,7 +330,7 @@ struct Outliner {
   }
 };
 
-template<unsigned width, unsigned height, typename PLOT>
+template<int width, int height, typename PLOT>
 struct GenericRenderer : public DrawList::Renderer {
   GenericRenderer(DrawList::draw_layer p_layer, uint8_t p_priority)
     : layer(p_layer), priority(p_priority)
