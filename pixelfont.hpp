@@ -1,5 +1,14 @@
 #pragma once
 
+#include <cstring>
+#include <cstdint>
+#include <cstdio>
+#include <functional>
+#include <memory>
+#include <vector>
+#include <stdexcept>
+#include <utility>
+
 namespace PixelFont {
 
 struct Glyph {
