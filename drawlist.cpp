@@ -65,10 +65,10 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
 
 Context::Context(
   const ChooseRenderer& chooseRenderer,
-  const std::shared_ptr<FontContainer>& fonts,
-  const std::shared_ptr<SpaceContainer>& spaces
+  std::shared_ptr<FontContainer>  fonts,
+  std::shared_ptr<SpaceContainer>  spaces
 )
-  : m_chooseRenderer(chooseRenderer), m_fonts(fonts), m_spaces(spaces)
+  : m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
 {
   // default to OAM layer target:
   m_chooseRenderer(OAM, false, 15, m_renderer);
@@ -847,7 +847,7 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
 
     uint32_t byte2count = (max_char_or_byte2-min_char_or_byte2+1);
     uint32_t count = byte2count * (max_byte1-min_byte1+1);
-    uint16_t glyphindices[count];
+    std::vector<uint16_t> glyphindices(count);
     for (uint32_t i = 0; i < count; i++) {
       in >> glyphindices[i];
       //printf("%4d\n", glyphindices[i]);

@@ -90,8 +90,8 @@ typedef std::function<void(draw_layer i_layer, bool i_pre_mode7_transform, uint8
 struct Context {
   Context(
     const ChooseRenderer& chooseRenderer,
-    const std::shared_ptr<FontContainer>& fonts,
-    const std::shared_ptr<SpaceContainer>& spaces
+    std::shared_ptr<FontContainer>  fonts,
+    std::shared_ptr<SpaceContainer>  spaces
   );
 
   void draw_list(const std::vector<uint16_t>& cmdlist);
