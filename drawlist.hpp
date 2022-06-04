@@ -68,7 +68,7 @@ private:
 typedef std::function<std::shared_ptr<Space>(int)> AllocateExtra;
 
 struct SpaceContainer {
-  static const int MaxCount = 1024;
+  static const int MaxCount = 256;
 
   explicit SpaceContainer(std::shared_ptr<Space> localSpace, AllocateExtra allocateExtra);
 

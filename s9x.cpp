@@ -7,11 +7,11 @@ using namespace DrawList;
 std::shared_ptr<SpaceContainer> spaceContainer;
 std::shared_ptr<FontContainer> fontContainer;
 
-uint16_t drawlistSize;
-uint16_t drawlistBuffer[0x10000];
+uint8_t  drawlistSize[2];
+uint8_t  drawlistBuffer[0x20000 - 2];
 
-uint8_t spaceVRAM[0x10000 * 1024];
-uint8_t spaceCGRAM[0x200 * 1024];
+uint16_t spaceVRAM[0x10000 * DrawList::SpaceContainer::MaxCount-1];
+uint16_t spaceCGRAM[ 0x200 * DrawList::SpaceContainer::MaxCount-1];
 
 // layer is one of `(BG1,BG2,BG3,OAM,BACK)`
 // priority is 0 or 1 for BG layers, and 0..3 for OAM layer
@@ -136,16 +136,29 @@ static uint16_t cmd[] = {
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 
 void PPUXInit() {
+    memset(drawlistSize, 0, sizeof(drawlistSize));
+    memset(drawlistBuffer, 0, sizeof(drawlistBuffer));
+    memset(spaceVRAM, 0, sizeof(spaceVRAM));
+    memset(spaceCGRAM, 0, sizeof(spaceCGRAM));
+
     fontContainer = std::make_shared<FontContainer>();
     spaceContainer = std::make_shared<SpaceContainer>(
         std::make_shared<LocalSpace>(Memory.VRAM, reinterpret_cast<uint8_t *>(PPU.CGDATA)),
         [](int index) {
-            return std::make_shared<LocalSpace>(spaceVRAM + index*0x10000, spaceCGRAM + index*0x200);
+            return std::make_shared<LocalSpace>(
+                (uint8_t*)spaceVRAM + index*0x10000*sizeof(uint16_t),
+                (uint8_t*)spaceCGRAM + index*0x200*sizeof(uint16_t)
+            );
         }
     );
 }
 
 void PPUXRender(bool8 sub) {
+    // big endian conversion:
+    uint16_t len = ((uint16_t)drawlistSize[0] << 8) | (uint16_t)drawlistSize[1];
+    if (len == 0)
+        return;
+
     Context c(
         [=](draw_layer i_layer, uint8_t i_priority, std::shared_ptr<Renderer>& o_target){
             o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(i_layer, i_priority, (bool)sub);
@@ -154,7 +167,8 @@ void PPUXRender(bool8 sub) {
         spaceContainer
     );
 
-    std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
+    //std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
+    std::vector<uint16_t> cmdlist(drawlistBuffer, drawlistBuffer + len);
     c.draw_list(cmdlist);
 }
 
