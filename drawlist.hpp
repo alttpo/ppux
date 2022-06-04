@@ -65,10 +65,12 @@ private:
   uint8_t cgram[0x200];
 };
 
+typedef std::function<std::shared_ptr<Space>(int)> AllocateExtra;
+
 struct SpaceContainer {
   static const int MaxCount = 1024;
 
-  explicit SpaceContainer(std::shared_ptr<Space> localSpace);
+  explicit SpaceContainer(std::shared_ptr<Space> localSpace, AllocateExtra allocateExtra);
 
   void reset();
 
@@ -80,6 +82,7 @@ struct SpaceContainer {
 private:
   std::shared_ptr<Space> m_localSpace;
   std::vector<std::shared_ptr<Space>> m_spaces;
+  AllocateExtra m_allocate;
 };
 
 struct Renderer {

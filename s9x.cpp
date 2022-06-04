@@ -1,11 +1,17 @@
 // MUST be #included from snes9x gfx.cpp after all existing header #includes
 
-#include "drawlist_fwd.hpp"
-#include "drawlist.hpp"
-
-#include "drawlist_render.hpp"
+#include "s9x.h"
 
 using namespace DrawList;
+
+std::shared_ptr<SpaceContainer> spaceContainer;
+std::shared_ptr<FontContainer> fontContainer;
+
+uint16_t drawlistSize;
+uint16_t drawlistBuffer[0x10000];
+
+uint8_t spaceVRAM[0x10000 * 1024];
+uint8_t spaceCGRAM[0x200 * 1024];
 
 // layer is one of `(BG1,BG2,BG3,OAM,BACK)`
 // priority is 0 or 1 for BG layers, and 0..3 for OAM layer
@@ -129,15 +135,23 @@ static uint16_t cmd[] = {
 };
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 
+void PPUXInit() {
+    fontContainer = std::make_shared<FontContainer>();
+    spaceContainer = std::make_shared<SpaceContainer>(
+        std::make_shared<LocalSpace>(Memory.VRAM, reinterpret_cast<uint8_t *>(PPU.CGDATA)),
+        [](int index) {
+            return std::make_shared<LocalSpace>(spaceVRAM + index*0x10000, spaceCGRAM + index*0x200);
+        }
+    );
+}
+
 void PPUXRender(bool8 sub) {
     Context c(
         [=](draw_layer i_layer, uint8_t i_priority, std::shared_ptr<Renderer>& o_target){
             o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(i_layer, i_priority, (bool)sub);
         },
-        std::make_shared<FontContainer>(),
-        std::make_shared<SpaceContainer>(
-            std::make_shared<LocalSpace>(Memory.VRAM, reinterpret_cast<uint8_t *>(PPU.CGDATA))
-        )
+        fontContainer,
+        spaceContainer
     );
 
     std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);

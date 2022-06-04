@@ -21,8 +21,8 @@ uint32_t ExtraSpace::vram_size() const { return 0x10000; }
 uint8_t* ExtraSpace::cgram_data() { return cgram; }
 uint32_t ExtraSpace::cgram_size() const { return 0x200; }
 
-SpaceContainer::SpaceContainer(std::shared_ptr<Space>  localSpace) :
-    m_localSpace(std::move(localSpace))
+SpaceContainer::SpaceContainer(std::shared_ptr<Space> localSpace, AllocateExtra allocateExtra) :
+    m_localSpace(std::move(localSpace)), m_allocate(allocateExtra)
 {
   m_spaces.resize(MaxCount);
 }
@@ -44,7 +44,8 @@ std::shared_ptr<Space> SpaceContainer::operator[](int index) {
 
   auto& space = m_spaces[index-1];
   if (!space) {
-    space.reset(new ExtraSpace());
+    space = m_allocate(index-1);
+    //space.reset(new ExtraSpace());
   }
 
   return space;
