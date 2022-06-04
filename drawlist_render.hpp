@@ -296,7 +296,7 @@ void draw_vram_tile(
 
 template<int width, int height, typename PLOT>
 struct Outliner {
-  Outliner(PLOT& p_plot) : plot(p_plot) {}
+  explicit Outliner(PLOT& p_plot) : plot(p_plot) {}
 
   PLOT& plot;
 
@@ -332,13 +332,15 @@ struct Outliner {
 
 template<int width, int height, typename PLOT>
 struct GenericRenderer : public DrawList::Renderer {
-  GenericRenderer(DrawList::draw_layer p_layer, uint8_t p_priority)
-    : layer(p_layer), priority(p_priority)
+  GenericRenderer(DrawList::draw_layer p_layer, uint8_t p_priority, bool p_sub)
+    : layer(p_layer), priority(p_priority), sub(p_sub),
+    stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF)
   {
   }
 
   DrawList::draw_layer layer;
   uint8_t priority;
+  bool sub;
   uint16_t stroke_color, outline_color, fill_color;
 
   void set_stroke_color(uint16_t color) override {
@@ -352,42 +354,42 @@ struct GenericRenderer : public DrawList::Renderer {
   }
 
   void draw_pixel(int x0, int y0) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_pixel<width, height>(x0, y0, outline_color, Outliner<width, height, PLOT>(plot));
     DrawList::draw_pixel<width, height>(x0, y0, stroke_color, plot);
   }
 
   void draw_hline(int x0, int y0, int w) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_hline<width, height>(x0, y0, w, outline_color, Outliner<width, height, PLOT>(plot));
     DrawList::draw_hline<width, height>(x0, y0, w, stroke_color, plot);
   }
 
   void draw_vline(int x0, int y0, int h) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_vline<width, height>(x0, y0, h, outline_color, Outliner<width, height, PLOT>(plot));
     DrawList::draw_vline<width, height>(x0, y0, h, stroke_color, plot);
   }
 
   void draw_rect(int x0, int y0, int w, int h) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_rect<width, height>(x0, y0, w, h, outline_color, Outliner<width, height, PLOT>(plot));
     DrawList::draw_rect<width, height>(x0, y0, w, h, stroke_color, plot);
   }
 
   void draw_rect_fill(int x0, int y0, int w, int h) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_rect_fill<width, height>(x0, y0, w, h, fill_color, plot);
   }
 
   void draw_line(int x0, int y0, int x1, int y1) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     DrawList::draw_line<width, height>(x0, y0, x1, y1, outline_color, Outliner<width, height, PLOT>(plot));
     DrawList::draw_line<width, height>(x0, y0, x1, y1, stroke_color, plot);
   }
 
   void draw_text_utf8(uint8_t* s, uint16_t len, PixelFont::Font& font, int x0, int y0, text_alignment align) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
 
     // handle horizontal alignment:
     if ((align & DrawList::TEXT_HALIGN_CENTER) || (align & DrawList::TEXT_HALIGN_RIGHT)) {
@@ -415,12 +417,12 @@ struct GenericRenderer : public DrawList::Renderer {
 
 
   uint16_t* draw_image(int x0, int y0, int w, int h, uint16_t* d) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     return DrawList::draw_image<width, height>(x0, y0, w, h, d, plot);
   }
 
   void draw_vram_tile(int x0, int y0, int w, int h, bool hflip, bool vflip, uint8_t bpp, uint16_t vram_addr, uint8_t palette, uint8_t* vram, uint8_t* cgram) override {
-    PLOT plot(layer, priority);
+    PLOT plot(layer, priority, sub);
     switch (bpp) {
       case 4:
         if (!hflip && !vflip)

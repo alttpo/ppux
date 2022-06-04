@@ -28,6 +28,8 @@ private:
 };
 
 struct Space {
+  virtual ~Space() = 0;
+
   virtual uint8_t* vram_data() = 0;
   virtual uint32_t vram_size() const = 0;
 
@@ -97,7 +99,7 @@ struct Renderer {
   virtual void draw_vram_tile(int x0, int y0, int w, int h, bool hflip, bool vflip, uint8_t bpp, uint16_t vram_addr, uint8_t palette, uint8_t* vram, uint8_t* cgram) = 0;
 };
 
-typedef std::function<void(draw_layer i_layer, bool i_pre_mode7_transform, uint8_t i_priority, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
+typedef std::function<void(draw_layer i_layer, uint8_t i_priority, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
 
 struct Context {
   Context(

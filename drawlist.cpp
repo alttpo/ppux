@@ -1,6 +1,8 @@
 
 namespace DrawList {
 
+Space::~Space() {}
+
 LocalSpace::LocalSpace(uint8_t* vram, uint8_t* cgram)
     : m_vram(vram), m_cgram(cgram)
 {}
@@ -70,8 +72,8 @@ Context::Context(
 )
   : m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
 {
-  // default to OAM layer target:
-  m_chooseRenderer(OAM, false, 15, m_renderer);
+  // default to OAM layer, priority 3 (of 3) target:
+  m_chooseRenderer(OAM, 3, m_renderer);
 }
 
 void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
@@ -118,10 +120,9 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
     switch (cmd) {
       case CMD_TARGET: {
         draw_layer layer = (draw_layer) *d++;
-        bool pre_mode7_transform = *d++;
         uint8_t priority = *d++;
 
-        m_chooseRenderer(layer, pre_mode7_transform, priority, m_renderer);
+        m_chooseRenderer(layer, priority, m_renderer);
         break;
       }
       case CMD_VRAM_TILE: {

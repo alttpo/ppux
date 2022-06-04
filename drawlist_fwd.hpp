@@ -57,7 +57,7 @@ enum draw_layer : uint16_t {
   BG4 = 3,
   OAM = 4,
   BACK = 5,
-  COL = 5
+  COL = 5,
 };
 
 struct FontContainer;
