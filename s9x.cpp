@@ -10,8 +10,8 @@ std::shared_ptr<FontContainer> fontContainer;
 uint8_t  drawlistSize[2];
 uint8_t  drawlistBuffer[0x20000 - 2];
 
-uint16_t spaceVRAM[0x10000 * DrawList::SpaceContainer::MaxCount-1];
-uint16_t spaceCGRAM[ 0x200 * DrawList::SpaceContainer::MaxCount-1];
+uint16_t spaceVRAM[0x8000 * DrawList::SpaceContainer::MaxCount-1];
+uint16_t spaceCGRAM[0x100 * DrawList::SpaceContainer::MaxCount-1];
 
 // layer is one of `(BG1,BG2,BG3,OAM,BACK)`
 // priority is 0 or 1 for BG layers, and 0..3 for OAM layer
