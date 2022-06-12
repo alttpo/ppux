@@ -68,7 +68,7 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
 
 Context::Context(
   const ChooseRenderer& chooseRenderer,
-  std::shared_ptr<FontContainer>  fonts,
+  std::shared_ptr<FontContainer>   fonts,
   std::shared_ptr<SpaceContainer>  spaces
 )
   : m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))

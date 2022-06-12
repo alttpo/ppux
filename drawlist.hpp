@@ -107,7 +107,7 @@ typedef std::function<void(draw_layer i_layer, uint8_t i_priority, std::shared_p
 struct Context {
   Context(
     const ChooseRenderer& chooseRenderer,
-    std::shared_ptr<FontContainer>  fonts,
+    std::shared_ptr<FontContainer>   fonts,
     std::shared_ptr<SpaceContainer>  spaces
   );
 

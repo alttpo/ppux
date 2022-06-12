@@ -161,7 +161,13 @@ void PPUXRender(bool8 sub) {
 
     Context c(
         [=](draw_layer i_layer, uint8_t i_priority, std::shared_ptr<Renderer>& o_target){
-            o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(i_layer, i_priority, (bool)sub);
+            o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(
+                LayerPlot(
+                    i_layer,
+                    i_priority,
+                    (bool)sub
+                )
+            );
         },
         fontContainer,
         spaceContainer
