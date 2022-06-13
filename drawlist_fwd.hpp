@@ -33,6 +33,7 @@ enum draw_cmd : uint16_t {
   CMD_COLOR_PALETTED,
   CMD_FONT_SELECT,
   CMD_TEXT_ALIGN,
+  CMD_BG_OFFSET,
 
   // commands which use state:
   ///////////////////////////////

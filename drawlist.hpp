@@ -86,10 +86,6 @@ private:
 };
 
 struct Renderer {
-  virtual void set_stroke_color(uint16_t color) = 0;
-  virtual void set_outline_color(uint16_t color) = 0;
-  virtual void set_fill_color(uint16_t color) = 0;
-
   virtual void draw_pixel(int x, int y) = 0;
   virtual void draw_hline(int x, int y, int w) = 0;
   virtual void draw_vline(int x, int y, int h) = 0;
@@ -102,7 +98,19 @@ struct Renderer {
   virtual void draw_vram_tile(int x0, int y0, int w, int h, bool hflip, bool vflip, uint8_t bpp, uint16_t vram_addr, uint8_t palette, uint8_t* vram, uint8_t* cgram) = 0;
 };
 
-typedef std::function<void(draw_layer i_layer, uint8_t i_priority, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
+struct State {
+  State();
+
+  draw_layer layer;
+  uint8_t priority;
+
+  uint16_t stroke_color, outline_color, fill_color;
+
+  int xOffset[4];
+  int yOffset[4];
+};
+
+typedef std::function<void(State& state, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
 
 struct Context {
   Context(
@@ -113,12 +121,15 @@ struct Context {
 
   void draw_list(const std::vector<uint16_t>& cmdlist);
 
+  State state;
+
 private:
   std::shared_ptr<Renderer> m_renderer;
   const ChooseRenderer& m_chooseRenderer;
 
   const std::shared_ptr<FontContainer> m_fonts;
   const std::shared_ptr<SpaceContainer> m_spaces;
+
 };
 
 }

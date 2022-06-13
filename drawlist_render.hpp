@@ -332,52 +332,41 @@ struct Outliner {
 
 template<int width, int height, typename PLOT>
 struct GenericRenderer : public DrawList::Renderer {
-  GenericRenderer(PLOT p_plot)
-    : plot(p_plot),
-    stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF)
+  GenericRenderer(State& p_state, PLOT p_plot)
+    : state(p_state), plot(p_plot)
   {
   }
 
+  State& state;
   PLOT plot;
-  uint16_t stroke_color, outline_color, fill_color;
-
-  void set_stroke_color(uint16_t color) override {
-    stroke_color = color;
-  }
-  void set_outline_color(uint16_t color) override {
-    outline_color = color;
-  }
-  void set_fill_color(uint16_t color) override {
-    fill_color = color;
-  }
 
   void draw_pixel(int x0, int y0) override {
-    DrawList::draw_pixel<width, height>(x0, y0, outline_color, Outliner<width, height, PLOT>(plot));
-    DrawList::draw_pixel<width, height>(x0, y0, stroke_color, plot);
+    DrawList::draw_pixel<width, height>(x0, y0, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_pixel<width, height>(x0, y0, state.stroke_color, plot);
   }
 
   void draw_hline(int x0, int y0, int w) override {
-    DrawList::draw_hline<width, height>(x0, y0, w, outline_color, Outliner<width, height, PLOT>(plot));
-    DrawList::draw_hline<width, height>(x0, y0, w, stroke_color, plot);
+    DrawList::draw_hline<width, height>(x0, y0, w, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_hline<width, height>(x0, y0, w, state.stroke_color, plot);
   }
 
   void draw_vline(int x0, int y0, int h) override {
-    DrawList::draw_vline<width, height>(x0, y0, h, outline_color, Outliner<width, height, PLOT>(plot));
-    DrawList::draw_vline<width, height>(x0, y0, h, stroke_color, plot);
+    DrawList::draw_vline<width, height>(x0, y0, h, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_vline<width, height>(x0, y0, h, state.stroke_color, plot);
   }
 
   void draw_rect(int x0, int y0, int w, int h) override {
-    DrawList::draw_rect<width, height>(x0, y0, w, h, outline_color, Outliner<width, height, PLOT>(plot));
-    DrawList::draw_rect<width, height>(x0, y0, w, h, stroke_color, plot);
+    DrawList::draw_rect<width, height>(x0, y0, w, h, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_rect<width, height>(x0, y0, w, h, state.stroke_color, plot);
   }
 
   void draw_rect_fill(int x0, int y0, int w, int h) override {
-    DrawList::draw_rect_fill<width, height>(x0, y0, w, h, fill_color, plot);
+    DrawList::draw_rect_fill<width, height>(x0, y0, w, h, state.fill_color, plot);
   }
 
   void draw_line(int x0, int y0, int x1, int y1) override {
-    DrawList::draw_line<width, height>(x0, y0, x1, y1, outline_color, Outliner<width, height, PLOT>(plot));
-    DrawList::draw_line<width, height>(x0, y0, x1, y1, stroke_color, plot);
+    DrawList::draw_line<width, height>(x0, y0, x1, y1, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_line<width, height>(x0, y0, x1, y1, state.stroke_color, plot);
   }
 
   void draw_text_utf8(uint8_t* s, uint16_t len, PixelFont::Font& font, int x0, int y0, text_alignment align) override {
@@ -401,8 +390,8 @@ struct GenericRenderer : public DrawList::Renderer {
       y0 -= font.m_height;
     }
 
-    font.draw_text_utf8<width, height>(s, len, x0, y0, outline_color, Outliner<width, height, PLOT>(plot));
-    font.draw_text_utf8<width, height>(s, len, x0, y0, stroke_color, plot);
+    font.draw_text_utf8<width, height>(s, len, x0, y0, state.outline_color, Outliner<width, height, PLOT>(plot));
+    font.draw_text_utf8<width, height>(s, len, x0, y0, state.stroke_color, plot);
   }
 
 

@@ -66,15 +66,24 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
   return space->cgram_data();
 }
 
+State::State() : stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF)
+{
+  xOffset[BG1] = 0;
+  yOffset[BG1] = 0;
+  xOffset[BG2] = 0;
+  yOffset[BG2] = 0;
+  xOffset[BG3] = 0;
+  yOffset[BG3] = 0;
+  xOffset[BG4] = 0;
+  yOffset[BG4] = 0;
+}
+
 Context::Context(
   const ChooseRenderer& chooseRenderer,
   std::shared_ptr<FontContainer>   fonts,
   std::shared_ptr<SpaceContainer>  spaces
-)
-  : m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
+) : state(), m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
 {
-  // default to OAM layer, priority 3 (of 3) target:
-  m_chooseRenderer(OAM, 3, m_renderer);
 }
 
 void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
@@ -84,18 +93,21 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
 
   text_alignment text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);
   uint16_t fontindex = 0;
-  uint16_t colorstate[COLOR_MAX] = { 0x7fff, };
-  uint16_t& stroke_color  = colorstate[COLOR_STROKE];
-  uint16_t& fill_color    = colorstate[COLOR_FILL];
-  uint16_t& outline_color = colorstate[COLOR_OUTLINE];
+  uint16_t* colorstate[COLOR_MAX] = {
+      &state.stroke_color,
+      &state.fill_color,
+      &state.outline_color
+  };
 
-  stroke_color = 0x7fff;
-  fill_color = color_none;
-  outline_color = color_none;
+  state.stroke_color = 0x7fff;
+  state.fill_color = color_none;
+  state.outline_color = color_none;
 
-  m_renderer->set_stroke_color(colorstate[COLOR_STROKE]);
-  m_renderer->set_fill_color(colorstate[COLOR_FILL]);
-  m_renderer->set_outline_color(colorstate[COLOR_OUTLINE]);
+  // default to OAM layer, priority 3 (of 3) target:
+  state.layer = OAM;
+  state.priority = 3;
+
+  m_chooseRenderer(state, m_renderer);
 
   // process all commands:
   while ((p - start) < end) {
@@ -120,10 +132,25 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
     int16_t  x1, y1;
     switch (cmd) {
       case CMD_TARGET: {
-        draw_layer layer = (draw_layer) *d++;
-        uint8_t priority = *d++;
+        state.layer = (draw_layer) *d++;
+        state.priority = *d++;
 
-        m_chooseRenderer(layer, priority, m_renderer);
+        m_chooseRenderer(state, m_renderer);
+        break;
+      }
+      case CMD_BG_OFFSET: {
+        uint16_t x = *d++;
+
+        state.xOffset[BG1] = ((x & 0x0001) != 0) ? 1 : ((x & 0x0002) != 0) ? -1 : 0;
+        state.xOffset[BG2] = ((x & 0x0004) != 0) ? 1 : ((x & 0x0008) != 0) ? -1 : 0;
+        state.xOffset[BG3] = ((x & 0x0010) != 0) ? 1 : ((x & 0x0020) != 0) ? -1 : 0;
+        state.xOffset[BG4] = ((x & 0x0040) != 0) ? 1 : ((x & 0x0080) != 0) ? -1 : 0;
+
+        state.yOffset[BG1] = ((x & 0x0100) != 0) ? 1 : ((x & 0x0200) != 0) ? -1 : 0;
+        state.yOffset[BG2] = ((x & 0x0400) != 0) ? 1 : ((x & 0x0800) != 0) ? -1 : 0;
+        state.yOffset[BG3] = ((x & 0x1000) != 0) ? 1 : ((x & 0x2000) != 0) ? -1 : 0;
+        state.yOffset[BG4] = ((x & 0x4000) != 0) ? 1 : ((x & 0x8000) != 0) ? -1 : 0;
+
         break;
       }
       case CMD_VRAM_TILE: {
@@ -203,11 +230,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
             continue;
           }
 
-          colorstate[index] = color;
-
-          m_renderer->set_stroke_color(colorstate[COLOR_STROKE]);
-          m_renderer->set_fill_color(colorstate[COLOR_FILL]);
-          m_renderer->set_outline_color(colorstate[COLOR_OUTLINE]);
+          *colorstate[index] = color;
         }
         break;
       }
@@ -232,7 +255,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
           }
 
           // convert to BGR555:
-          colorstate[index] =
+          *colorstate[index] =
             // blue
             (((gb >> 3) & 0x1F) << 10)
             // green
@@ -241,10 +264,6 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
             | ((ar >> 3) & 0x1F)
             // alpha (only MSB)
             | ((ar >> 15) << 15);
-
-          m_renderer->set_stroke_color(colorstate[COLOR_STROKE]);
-          m_renderer->set_fill_color(colorstate[COLOR_FILL]);
-          m_renderer->set_outline_color(colorstate[COLOR_OUTLINE]);
         }
         break;
       }
@@ -272,11 +291,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
           }
 
           // read litle-endian 16-bit color from CGRAM:
-          colorstate[index] = cgram[addr] + (cgram[addr + 1] << 8);
-
-          m_renderer->set_stroke_color(colorstate[COLOR_STROKE]);
-          m_renderer->set_fill_color(colorstate[COLOR_FILL]);
-          m_renderer->set_outline_color(colorstate[COLOR_OUTLINE]);
+          *colorstate[index] = cgram[addr] + (cgram[addr + 1] << 8);
         }
         break;
       }
