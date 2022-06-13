@@ -166,13 +166,14 @@ void PPUXInit() {
 }
 
 void PPUXRender(bool8 sub) {
-#if 1
+#if 0
     std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
 #else
     // big endian conversion:
     uint16_t len = ((uint16_t)drawlistSize[0] << 8) | (uint16_t)drawlistSize[1];
     if (len == 0)
         return;
+
     std::vector<uint16_t> cmdlist(drawlistBuffer, drawlistBuffer + len);
 #endif
 
