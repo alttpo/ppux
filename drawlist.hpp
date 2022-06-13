@@ -101,12 +101,16 @@ struct Renderer {
 struct State {
   State();
 
+  void calc_offsets();
+
   draw_layer layer;
   uint8_t priority;
 
   uint16_t stroke_color, outline_color, fill_color;
 
-  int xOffset, yOffset;
+  int xOffsetBG, yOffsetBG; // BG relative offset
+  int xOffsetXY, yOffsetXY; // XY relative offset
+  int xOffset, yOffset; // calculated
 };
 
 typedef std::function<void(State& state, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;

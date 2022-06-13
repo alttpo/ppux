@@ -67,8 +67,15 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
 }
 
 State::State() : stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF),
+    xOffsetBG(0), yOffsetBG(0),
+    xOffsetXY(0), yOffsetXY(0),
     xOffset(0), yOffset(0)
 {
+}
+
+void State::calc_offsets() {
+  xOffset = xOffsetBG + xOffsetXY;
+  yOffset = yOffsetBG + yOffsetXY;
 }
 
 Context::Context(
@@ -139,40 +146,43 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
       }
       case CMD_BG_OFFSET: {
         int bgOffsX, bgOffsY;
-        uint16_t x = *d++;
+        uint16_t x = *d++; // bit flags to indicate +/- of BG[1,2,3,4] H/V offsets
 
-        state.xOffset = 0;
-        state.yOffset = 0;
+        state.xOffsetBG = 0;
+        state.yOffsetBG = 0;
 
         if ((x & 0x0303) != 0) {
             m_getBGOffsets(BG1, bgOffsX, bgOffsY);
-            bgOffsX &= 511;
-            bgOffsY &= 511;
-            state.xOffset += ((x & 0x0001) != 0) ? bgOffsX : ((x & 0x0002) != 0) ? -bgOffsX : 0;
-            state.yOffset += ((x & 0x0100) != 0) ? bgOffsY : ((x & 0x0200) != 0) ? -bgOffsY : 0;
+            state.xOffsetBG += ((x & 0x0001) != 0) ? bgOffsX : ((x & 0x0002) != 0) ? -bgOffsX : 0;
+            state.yOffsetBG += ((x & 0x0100) != 0) ? bgOffsY : ((x & 0x0200) != 0) ? -bgOffsY : 0;
         }
         if ((x & 0x0C0C) != 0) {
             m_getBGOffsets(BG2, bgOffsX, bgOffsY);
-            bgOffsX &= 511;
-            bgOffsY &= 511;
-            state.xOffset += ((x & 0x0004) != 0) ? bgOffsX : ((x & 0x0008) != 0) ? -bgOffsX : 0;
-            state.yOffset += ((x & 0x0400) != 0) ? bgOffsY : ((x & 0x0800) != 0) ? -bgOffsY : 0;
+            state.xOffsetBG += ((x & 0x0004) != 0) ? bgOffsX : ((x & 0x0008) != 0) ? -bgOffsX : 0;
+            state.yOffsetBG += ((x & 0x0400) != 0) ? bgOffsY : ((x & 0x0800) != 0) ? -bgOffsY : 0;
         }
         if ((x & 0x3030) != 0) {
             m_getBGOffsets(BG3, bgOffsX, bgOffsY);
-            bgOffsX &= 511;
-            bgOffsY &= 511;
-            state.xOffset += ((x & 0x0010) != 0) ? bgOffsX : ((x & 0x0020) != 0) ? -bgOffsX : 0;
-            state.yOffset += ((x & 0x1000) != 0) ? bgOffsY : ((x & 0x2000) != 0) ? -bgOffsY : 0;
+            state.xOffsetBG += ((x & 0x0010) != 0) ? bgOffsX : ((x & 0x0020) != 0) ? -bgOffsX : 0;
+            state.yOffsetBG += ((x & 0x1000) != 0) ? bgOffsY : ((x & 0x2000) != 0) ? -bgOffsY : 0;
         }
         if ((x & 0xC0C0) != 0) {
             m_getBGOffsets(BG4, bgOffsX, bgOffsY);
-            bgOffsX &= 511;
-            bgOffsY &= 511;
-            state.xOffset += ((x & 0x0040) != 0) ? bgOffsX : ((x & 0x0080) != 0) ? -bgOffsX : 0;
-            state.yOffset += ((x & 0x4000) != 0) ? bgOffsY : ((x & 0x8000) != 0) ? -bgOffsY : 0;
+            state.xOffsetBG += ((x & 0x0040) != 0) ? bgOffsX : ((x & 0x0080) != 0) ? -bgOffsX : 0;
+            state.yOffsetBG += ((x & 0x4000) != 0) ? bgOffsY : ((x & 0x8000) != 0) ? -bgOffsY : 0;
         }
 
+        state.calc_offsets();
+        break;
+      }
+      case CMD_XY_OFFSET: {
+        uint16_t xOffs = *d++;
+        uint16_t yOffs = *d++;
+
+        state.xOffsetXY = xOffs;
+        state.yOffsetXY = yOffs;
+
+        state.calc_offsets();
         break;
       }
       case CMD_VRAM_TILE: {

@@ -114,6 +114,8 @@ static uint16_t cmd[] = {
     3, CMD_TARGET, OAM, 3,
     // BG2 H/V offset relative:
     2, CMD_BG_OFFSET, 0x0808,
+    // Position at upper-left of overworld Link's house:
+    3, CMD_XY_OFFSET, 2048, 2560,
     3, CMD_COLOR_DIRECT_BGR555, COLOR_STROKE, 0x1F3F,
     3, CMD_PIXEL, 18, 118,
     9, CMD_IMAGE, 20, 120, 2, 2,
