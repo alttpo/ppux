@@ -82,42 +82,13 @@ struct LayerPlot {
     LayerPlot(State& p_state, bool p_sub)
       : state(p_state), depth(PPUXCalcDepth(p_state.layer, p_state.priority, p_sub))
     {
-        xOffs = 0;
-        yOffs = 0;
-        if (state.xOffset[BG1] != 0) {
-            xOffs += state.xOffset[BG1] * PPU.BG[BG1].HOffset;
-        }
-        if (state.yOffset[BG1] != 0) {
-            yOffs += state.yOffset[BG1] * PPU.BG[BG1].VOffset;
-        }
-        if (state.xOffset[BG2] != 0) {
-            xOffs += state.xOffset[BG2] * PPU.BG[BG2].HOffset;
-        }
-        if (state.yOffset[BG2] != 0) {
-            yOffs += state.yOffset[BG2] * PPU.BG[BG2].VOffset;
-        }
-        if (state.xOffset[BG3] != 0) {
-            xOffs += state.xOffset[BG3] * PPU.BG[BG3].HOffset;
-        }
-        if (state.yOffset[BG3] != 0) {
-            yOffs += state.yOffset[BG3] * PPU.BG[BG3].VOffset;
-        }
-        if (state.xOffset[BG4] != 0) {
-            xOffs += state.xOffset[BG4] * PPU.BG[BG4].HOffset;
-        }
-        if (state.yOffset[BG4] != 0) {
-            yOffs += state.yOffset[BG4] * PPU.BG[BG4].VOffset;
-        }
     }
 
     State& state;
     uint8_t depth;
-    int xOffs, yOffs;
 
     void operator() (int x, int y, uint16_t color) {
-        // adjust with x/y offsets:
-        x += xOffs;
-        y += yOffs;
+        // coords are already xOffset/yOffset adjusted by Renderer implementation
         if (!bounds_check<width, height>(x, y)) {
             return;
         }
@@ -141,7 +112,8 @@ using LayerRenderer = DrawList::GenericRenderer<256, 256, LayerPlot<256, 256>>;
 
 static uint16_t cmd[] = {
     3, CMD_TARGET, OAM, 3,
-    //2, CMD_BG_OFFSET, 0x0202,
+    // BG2 H/V offset relative:
+    2, CMD_BG_OFFSET, 0x0808,
     3, CMD_COLOR_DIRECT_BGR555, COLOR_STROKE, 0x1F3F,
     3, CMD_PIXEL, 18, 118,
     9, CMD_IMAGE, 20, 120, 2, 2,
@@ -192,10 +164,15 @@ void PPUXInit() {
 }
 
 void PPUXRender(bool8 sub) {
+#if 1
+    std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
+#else
     // big endian conversion:
     uint16_t len = ((uint16_t)drawlistSize[0] << 8) | (uint16_t)drawlistSize[1];
     if (len == 0)
         return;
+    std::vector<uint16_t> cmdlist(drawlistBuffer, drawlistBuffer + len);
+#endif
 
     Context c(
         [=](State& state, std::shared_ptr<Renderer>& o_target){
@@ -204,12 +181,14 @@ void PPUXRender(bool8 sub) {
                 LayerPlot<256, 256>(state, (bool)sub)
             );
         },
+        [=](draw_layer layer, int& xOffset, int& yOffset) {
+            xOffset = PPU.BG[layer].HOffset;
+            yOffset = PPU.BG[layer].VOffset;
+        },
         fontContainer,
         spaceContainer
     );
 
-    std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
-    //std::vector<uint16_t> cmdlist(drawlistBuffer, drawlistBuffer + len);
     c.draw_list(cmdlist);
 }
 

@@ -106,15 +106,16 @@ struct State {
 
   uint16_t stroke_color, outline_color, fill_color;
 
-  int xOffset[4];
-  int yOffset[4];
+  int xOffset, yOffset;
 };
 
 typedef std::function<void(State& state, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
+typedef std::function<void(draw_layer layer, int& xOffset, int& yOffset)> GetBGOffsets;
 
 struct Context {
   Context(
     const ChooseRenderer& chooseRenderer,
+    const GetBGOffsets& getBGOffsets,
     std::shared_ptr<FontContainer>   fonts,
     std::shared_ptr<SpaceContainer>  spaces
   );
@@ -125,11 +126,12 @@ struct Context {
 
 private:
   std::shared_ptr<Renderer> m_renderer;
+
   const ChooseRenderer& m_chooseRenderer;
+  const GetBGOffsets& m_getBGOffsets;
 
   const std::shared_ptr<FontContainer> m_fonts;
   const std::shared_ptr<SpaceContainer> m_spaces;
-
 };
 
 }

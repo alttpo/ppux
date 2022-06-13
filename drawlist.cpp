@@ -66,23 +66,19 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
   return space->cgram_data();
 }
 
-State::State() : stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF)
+State::State() : stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF),
+    xOffset(0), yOffset(0)
 {
-  xOffset[BG1] = 0;
-  yOffset[BG1] = 0;
-  xOffset[BG2] = 0;
-  yOffset[BG2] = 0;
-  xOffset[BG3] = 0;
-  yOffset[BG3] = 0;
-  xOffset[BG4] = 0;
-  yOffset[BG4] = 0;
 }
 
 Context::Context(
   const ChooseRenderer& chooseRenderer,
+  const GetBGOffsets& getBGOffsets,
   std::shared_ptr<FontContainer>   fonts,
   std::shared_ptr<SpaceContainer>  spaces
-) : state(), m_chooseRenderer(chooseRenderer), m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
+) : state(),
+    m_chooseRenderer(chooseRenderer), m_getBGOffsets(getBGOffsets),
+    m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
 {
 }
 
@@ -106,6 +102,9 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
   // default to OAM layer, priority 3 (of 3) target:
   state.layer = OAM;
   state.priority = 3;
+
+  state.xOffset = 0;
+  state.yOffset = 0;
 
   m_chooseRenderer(state, m_renderer);
 
@@ -139,17 +138,40 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
         break;
       }
       case CMD_BG_OFFSET: {
+        int bgOffsX, bgOffsY;
         uint16_t x = *d++;
 
-        state.xOffset[BG1] = ((x & 0x0001) != 0) ? 1 : ((x & 0x0002) != 0) ? -1 : 0;
-        state.xOffset[BG2] = ((x & 0x0004) != 0) ? 1 : ((x & 0x0008) != 0) ? -1 : 0;
-        state.xOffset[BG3] = ((x & 0x0010) != 0) ? 1 : ((x & 0x0020) != 0) ? -1 : 0;
-        state.xOffset[BG4] = ((x & 0x0040) != 0) ? 1 : ((x & 0x0080) != 0) ? -1 : 0;
+        state.xOffset = 0;
+        state.yOffset = 0;
 
-        state.yOffset[BG1] = ((x & 0x0100) != 0) ? 1 : ((x & 0x0200) != 0) ? -1 : 0;
-        state.yOffset[BG2] = ((x & 0x0400) != 0) ? 1 : ((x & 0x0800) != 0) ? -1 : 0;
-        state.yOffset[BG3] = ((x & 0x1000) != 0) ? 1 : ((x & 0x2000) != 0) ? -1 : 0;
-        state.yOffset[BG4] = ((x & 0x4000) != 0) ? 1 : ((x & 0x8000) != 0) ? -1 : 0;
+        if ((x & 0x0303) != 0) {
+            m_getBGOffsets(BG1, bgOffsX, bgOffsY);
+            bgOffsX &= 511;
+            bgOffsY &= 511;
+            state.xOffset += ((x & 0x0001) != 0) ? bgOffsX : ((x & 0x0002) != 0) ? -bgOffsX : 0;
+            state.yOffset += ((x & 0x0100) != 0) ? bgOffsY : ((x & 0x0200) != 0) ? -bgOffsY : 0;
+        }
+        if ((x & 0x0C0C) != 0) {
+            m_getBGOffsets(BG2, bgOffsX, bgOffsY);
+            bgOffsX &= 511;
+            bgOffsY &= 511;
+            state.xOffset += ((x & 0x0004) != 0) ? bgOffsX : ((x & 0x0008) != 0) ? -bgOffsX : 0;
+            state.yOffset += ((x & 0x0400) != 0) ? bgOffsY : ((x & 0x0800) != 0) ? -bgOffsY : 0;
+        }
+        if ((x & 0x3030) != 0) {
+            m_getBGOffsets(BG3, bgOffsX, bgOffsY);
+            bgOffsX &= 511;
+            bgOffsY &= 511;
+            state.xOffset += ((x & 0x0010) != 0) ? bgOffsX : ((x & 0x0020) != 0) ? -bgOffsX : 0;
+            state.yOffset += ((x & 0x1000) != 0) ? bgOffsY : ((x & 0x2000) != 0) ? -bgOffsY : 0;
+        }
+        if ((x & 0xC0C0) != 0) {
+            m_getBGOffsets(BG4, bgOffsX, bgOffsY);
+            bgOffsX &= 511;
+            bgOffsY &= 511;
+            state.xOffset += ((x & 0x0040) != 0) ? bgOffsX : ((x & 0x0080) != 0) ? -bgOffsX : 0;
+            state.yOffset += ((x & 0x4000) != 0) ? bgOffsY : ((x & 0x8000) != 0) ? -bgOffsY : 0;
+        }
 
         break;
       }
