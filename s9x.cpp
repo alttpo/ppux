@@ -7,8 +7,8 @@ using namespace DrawList;
 std::shared_ptr<SpaceContainer> spaceContainer;
 std::shared_ptr<FontContainer> fontContainer;
 
-uint8_t  drawlistSize[2];
-uint8_t  drawlistBuffer[0x20000 - 2];
+uint8_t  drawlistSize[4];
+uint8_t  drawlistBuffer[0x20000 - 4];
 
 uint16_t spaceVRAM[0x8000 * DrawList::SpaceContainer::MaxCount-1];
 uint16_t spaceCGRAM[0x100 * DrawList::SpaceContainer::MaxCount-1];
@@ -169,12 +169,20 @@ void PPUXRender(bool8 sub) {
 #if 0
     std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
 #else
-    // big endian conversion:
-    uint16_t len = ((uint16_t)drawlistSize[0] << 8) | (uint16_t)drawlistSize[1];
+    // little endian conversion:
+    uint32_t len =
+            ((uint32_t)drawlistSize[0]) |
+            ((uint32_t)drawlistSize[1] << 8) |
+            ((uint32_t)drawlistSize[2] << 16) |
+            ((uint32_t)drawlistSize[3] << 24);
     if (len == 0)
         return;
+    if (len > sizeof(drawlistBuffer)) {
+        fprintf(stderr, "PPUXRender: drawlist size (%u) too large for buffer size (%u)\n", len, sizeof(drawlistBuffer));
+        return;
+    }
 
-    std::vector<uint16_t> cmdlist(drawlistBuffer, drawlistBuffer + len);
+    std::vector<uint16_t> cmdlist((uint16_t*)drawlistBuffer, (uint16_t*)(drawlistBuffer + len));
 #endif
 
     Context c(
@@ -196,6 +204,7 @@ void PPUXRender(bool8 sub) {
 }
 
 void PPUXUpdate() {
+#if 0
     strcpy((char *)&cmd[(cmd_len-4)], "jsd1982");
 
     // increment y:
@@ -219,4 +228,5 @@ void PPUXUpdate() {
     if ((int16_t)cmd[cmd_len-20] <= -12) {
         cmd[cmd_len-20] = 240;
     }
+#endif
 }

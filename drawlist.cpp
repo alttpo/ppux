@@ -121,7 +121,7 @@ void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
     uint16_t len = *p++;
 
     if (p + len - start > end) {
-      fprintf(stderr, "draw_list: command length at index %lld exceeds size of command list; %llu > %u", p - start, p + len - start, end);
+      fprintf(stderr, "draw_list: command length at index %lld exceeds size of command list; %llu > %u\n", p - start, p + len - start, end);
       break;
     }
 
