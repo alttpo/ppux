@@ -6,11 +6,8 @@
 using namespace DrawList;
 
 static uint16_t cmd[] = {
-    3, CMD_TARGET, OAM, 3,
     // BG2 H/V offset relative:
     2, CMD_BG_OFFSET, 0x0808,
-    // Position at upper-left of overworld Link's house:
-    3, CMD_XY_OFFSET, 2048, 2560,
     3, CMD_COLOR_DIRECT_BGR555, COLOR_STROKE, 0x1F3F,
     3, CMD_PIXEL, 18, 118,
     9, CMD_IMAGE, 20, 120, 2, 2,
@@ -32,6 +29,7 @@ static uint16_t cmd[] = {
     4, CMD_COLOR_PALETTED, COLOR_FILL, 0, 0xF3,
     5, CMD_RECT_FILL, 92, 0, 4, 4,
     5, CMD_COLOR_DIRECT_BGR555, COLOR_STROKE, 0x1C4E, COLOR_OUTLINE, 0x0C27,
+
     // -23
     5, CMD_LINE, static_cast<uint16_t>(-20), static_cast<uint16_t>(242), 260, 9,
     // -17
@@ -56,9 +54,15 @@ int main(void) {
     printf("\n");
 
     // jump table:
-    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFF800);
-    // drawlist 1:
-    printf(" %02X %02X", 1 & 0xFF, (1 >> 8) & 0xFF);
+    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFE000);
+    printf(" %02X %02X %02X %02X %02X %02X %02X %02X",
+        1 & 0xFF, (1 >> 8) & 0xFF,          // drawlist 1:
+        OAM,                                // layer
+        3,                                  // priority
+        // Uncle Passage:
+        2560 & 0xFF, (2560 >> 8) & 0xFF,    // x_offset
+        2560 & 0xFF, (2560 >> 8) & 0xFF     // y_offset
+    );
     // end of list:
     printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
     printf("\n");
