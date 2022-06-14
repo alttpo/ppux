@@ -124,7 +124,7 @@ struct Context {
     std::shared_ptr<SpaceContainer>  spaces
   );
 
-  void draw_list(const std::vector<uint16_t>& cmdlist);
+  void draw_list(uint16_t* start, uint32_t end);
 
   State state;
 

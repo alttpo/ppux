@@ -7,8 +7,9 @@ using namespace DrawList;
 std::shared_ptr<SpaceContainer> spaceContainer;
 std::shared_ptr<FontContainer> fontContainer;
 
-uint8_t  drawlistSize[4];
-uint8_t  drawlistBuffer[0x20000 - 4];
+drawlist_jump_table drawlistJump;
+drawlist_data drawlists[drawlistCount];
+font_data fonts;
 
 uint16_t spaceVRAM[0x8000 * DrawList::SpaceContainer::MaxCount-1];
 uint16_t spaceCGRAM[0x100 * DrawList::SpaceContainer::MaxCount-1];
@@ -150,8 +151,9 @@ struct LayerPlot {
 using LayerRenderer = DrawList::GenericRenderer<256, 256, LayerPlot<256, 256>>;
 
 void PPUXInit() {
-    memset(drawlistSize, 0, sizeof(drawlistSize));
-    memset(drawlistBuffer, 0, sizeof(drawlistBuffer));
+    memset((void*)&drawlists, 0, sizeof(drawlists));
+    memset((void*)&fonts, 0, sizeof(fonts));
+    memset((void*)&drawlistJump, 0, sizeof(drawlistJump));
     memset(spaceVRAM, 0, sizeof(spaceVRAM));
     memset(spaceCGRAM, 0, sizeof(spaceCGRAM));
 
@@ -168,27 +170,6 @@ void PPUXInit() {
 }
 
 void PPUXRender(bool8 sub) {
-#ifdef PPUX_TEST_PATTERN
-    std::vector<uint16_t> cmdlist(cmd, cmd + cmd_len);
-#else
-    // little endian conversion:
-    uint32_t len =
-        ((uint32_t)drawlistSize[0]) |
-        ((uint32_t)drawlistSize[1] << 8) |
-        ((uint32_t)drawlistSize[2] << 16) |
-        ((uint32_t)drawlistSize[3] << 24);
-
-    if (len == 0)
-        return;
-
-    if (len > sizeof(drawlistBuffer)) {
-        fprintf(stderr, "PPUXRender: drawlist size (%u) too large for buffer size (%u)\n", len, sizeof(drawlistBuffer));
-        return;
-    }
-
-    std::vector<uint16_t> cmdlist((uint16_t*)drawlistBuffer, (uint16_t*)(drawlistBuffer + len));
-#endif
-
     Context c(
         [=](State& state, std::shared_ptr<Renderer>& o_target){
             o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(
@@ -204,7 +185,27 @@ void PPUXRender(bool8 sub) {
         spaceContainer
     );
 
-    c.draw_list(cmdlist);
+    // iterate through the jump table and draw the lists:
+    auto endp = (uint16_t *)drawlistJump.index + drawlistCount;
+    for (auto p = (uint16_t *)drawlistJump.index; p != endp && *p != 0; p++) {
+        auto index = *p - 1;
+        if (index >= drawlistCount)
+            break;
+
+        drawlist_data &dl = drawlists[index];
+
+        uint32_t  end = ((uint16_t)dl.size[0]) | ((uint16_t)dl.size[1] << 8);
+        if (end == 0)
+            continue;
+
+        if (end > sizeof(dl.data)) {
+            fprintf(stderr, "PPUXRender: drawlist[%u] size (%u) too large for buffer size (%u)\n", *p, end, sizeof(dl.data));
+            return;
+        }
+
+        auto start = (uint16_t*) dl.data;
+        c.draw_list(start, end);
+    }
 }
 
 void PPUXUpdate() {

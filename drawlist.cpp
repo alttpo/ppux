@@ -89,9 +89,9 @@ Context::Context(
 {
 }
 
-void Context::draw_list(const std::vector<uint16_t>& cmdlist) {
-  uint16_t* start = (uint16_t*) cmdlist.data();
-  uint32_t  end = cmdlist.size();
+void Context::draw_list(uint16_t* start, uint32_t end) {
+  //uint16_t* start = (uint16_t*) cmdlist.data();
+  //uint32_t  end = cmdlist.size();
   uint16_t* p = start;
 
   text_alignment text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);

@@ -32,7 +32,7 @@ static uint16_t cmd[] = {
     5, CMD_RECT_FILL, 92, 0, 4, 4,
     5, CMD_COLOR_DIRECT_BGR555, COLOR_STROKE, 0x1C4E, COLOR_OUTLINE, 0x0C27,
     // -23
-    5, CMD_LINE, static_cast<uint16_t>(-10), static_cast<uint16_t>(-12), 260, 239,
+    5, CMD_LINE, static_cast<uint16_t>(-20), static_cast<uint16_t>(242), 260, 9,
     // -17
     7, CMD_COLOR_DIRECT_RGB888, COLOR_STROKE, 0x0000, 0xFF00, COLOR_OUTLINE, 0x00FF, 0x0000,
     // -9
@@ -43,15 +43,19 @@ static uint16_t cmd[] = {
 
 int main(void) {
     uint32_t s = sizeof(cmd);
-    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFE0000);
+    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFF020000);
+    printf(" %02X %02X", s & 0xFF, (s >> 8) & 0xFF);
     for (int i = 0; i < s; i++) {
         auto c = ((uint8_t*)cmd)[i];
         printf(" %02X", c);
     }
     printf("\n");
 
-    // write size in 4 bytes:
-    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFFFFC);
-    printf(" %02X %02X %02X %02X", s & 0xFF, (s >> 8) & 0xFF, (s >> 16) & 0xFF, (s >> 24) & 0xFF);
+    // write jump table in 4 bytes:
+    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFF800);
+    // drawlist 1:
+    printf(" %02X %02X", 1 & 0xFF, (1 >> 8) & 0xFF);
+    // end of list:
+    printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
     printf("\n");
 }
