@@ -129,9 +129,12 @@ struct LayerPlot {
 
     void operator() (int x, int y, uint16_t color) {
         // coords are already xOffset/yOffset adjusted by Renderer implementation
+#if 0
+        // coords MUST be bounds checked before calling plot()
         if (!bounds_check<width, height>(x, y)) {
             return;
         }
+#endif
 
         // draw to any PPU layer:
         auto offs = (y * GFX.PPL) + x;

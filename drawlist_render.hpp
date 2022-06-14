@@ -127,11 +127,9 @@ void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
         mx = mx + 2 * (dy1 - dx1);
       }
 
-      if (x < 0) continue;
-      if (y < 0) continue;
-      if (x >= width) break;
-      if (y >= height) break;
-      plot(x, y, color);
+      if (bounds_check<width, height>(x, y)) {
+        plot(x, y, color);
+      }
     }
   } else {
     if (dy >= 0) {
@@ -161,11 +159,9 @@ void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
         my = my + 2 * (dx1 - dy1);
       }
 
-      if (x < 0) continue;
-      if (y < 0) continue;
-      if (x >= width) break;
-      if (y >= height) break;
-      plot(x, y, color);
+      if (bounds_check<width, height>(x, y)) {
+        plot(x, y, color);
+      }
     }
   }
 }
