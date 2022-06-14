@@ -33,4 +33,11 @@ void PPUXFillMemoryDescriptors(struct retro_memory_descriptor* mem) {
     mem[4].len = sizeof(drawlistJump);
     mem[4].ptr = (void*)&drawlistJump;
     mem[4].addrspace = "XJ"; // PPUX DrawList Jump Table
+
+    // ensure no overlaps:
+    assert(mem[0].start + mem[0].len <= mem[1].start);
+    assert(mem[1].start + mem[1].len <= mem[2].start);
+    assert(mem[2].start + mem[2].len <= mem[3].start);
+    assert(mem[3].start + mem[3].len <= mem[4].start);
+    assert(mem[4].start + mem[4].len <= 0x100000000);
 }
