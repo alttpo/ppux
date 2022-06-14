@@ -66,7 +66,12 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
   return space->cgram_data();
 }
 
-State::State() : stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF),
+State::State()
+  : layer(OAM),
+    priority(3),
+    text_align(static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP)),
+    font_index(0),
+    stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF),
     xOffsetBG(0), yOffsetBG(0),
     xOffsetXY(0), yOffsetXY(0),
     xOffset(0), yOffset(0)
@@ -89,33 +94,37 @@ Context::Context(
 {
 }
 
-void Context::draw_list(uint16_t* start, uint32_t end) {
-  //uint16_t* start = (uint16_t*) cmdlist.data();
-  //uint32_t  end = cmdlist.size();
-  uint16_t* p = start;
+void State::reset_state() {
+  text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);
+  font_index = 0;
 
-  text_alignment text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);
-  uint16_t fontindex = 0;
+  stroke_color = 0x7fff;
+  fill_color = color_none;
+  outline_color = color_none;
+
+  layer = OAM;
+  priority = 3;
+
+  xOffsetBG = 0;
+  yOffsetBG = 0;
+  xOffsetXY = 0;
+  yOffsetXY = 0;
+  xOffset = 0;
+  yOffset = 0;
+}
+
+void Context::draw_list(uint16_t* start, uint32_t end) {
   uint16_t* colorstate[COLOR_MAX] = {
       &state.stroke_color,
       &state.fill_color,
       &state.outline_color
   };
 
-  state.stroke_color = 0x7fff;
-  state.fill_color = color_none;
-  state.outline_color = color_none;
-
-  // default to OAM layer, priority 3 (of 3) target:
-  state.layer = OAM;
-  state.priority = 3;
-
-  state.xOffset = 0;
-  state.yOffset = 0;
-
+  state.calc_offsets();
   m_chooseRenderer(state, m_renderer);
 
   // process all commands:
+  uint16_t* p = start;
   while ((p - start) < end) {
     // every command starts with the number of 16-bit words in length, including command, arguments, and inline data:
     uint16_t len = *p++;
@@ -334,11 +343,11 @@ void Context::draw_list(uint16_t* start, uint32_t end) {
           fprintf(stderr, "draw_list: CMD_FONT_SELECT: bad font index; %d\n", index);
           continue;
         }
-        fontindex = index;
+        state.font_index = index;
         break;
       }
       case CMD_TEXT_ALIGN: {
-        text_align = static_cast<text_alignment>(*d++);
+        state.text_align = static_cast<text_alignment>(*d++);
         break;
       }
       case CMD_TEXT_UTF8: {
@@ -372,15 +381,15 @@ void Context::draw_list(uint16_t* start, uint32_t end) {
           d += textwords;
 
           // find font:
-          if (fontindex >= m_fonts->size()) {
+          if (state.font_index >= m_fonts->size()) {
             continue;
           }
-          const auto font = (*m_fonts)[fontindex];
+          const auto font = (*m_fonts)[state.font_index];
           if (!font) {
             continue;
           }
 
-          m_renderer->draw_text_utf8(str, textchars, *font, x0, y0, text_align);
+          m_renderer->draw_text_utf8(str, textchars, *font, x0, y0, state.text_align);
         }
         break;
       }

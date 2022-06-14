@@ -101,10 +101,14 @@ struct Renderer {
 struct State {
   State();
 
+  void reset_state();
   void calc_offsets();
 
   draw_layer layer;
   uint8_t priority;
+
+  text_alignment text_align;
+  uint16_t font_index;
 
   uint16_t stroke_color, outline_color, fill_color;
 

@@ -29,7 +29,7 @@ void PPUXFillMemoryDescriptors(struct retro_memory_descriptor* mem) {
     mem[3].ptr = (void*)&fonts;
     mem[3].addrspace = "XF"; // PPUX PCF fonts
 
-    mem[4].start = 0xFFFFF800; // .. 0xFFFFFFFF
+    mem[4].start = 0xFFFFE000; // .. 0xFFFFFFFF
     mem[4].len = sizeof(drawlistJump);
     mem[4].ptr = (void*)&drawlistJump;
     mem[4].addrspace = "XJ"; // PPUX DrawList Jump Table

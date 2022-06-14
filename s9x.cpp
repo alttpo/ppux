@@ -7,7 +7,7 @@ using namespace DrawList;
 std::shared_ptr<SpaceContainer> spaceContainer;
 std::shared_ptr<FontContainer> fontContainer;
 
-drawlist_jump_table drawlistJump;
+drawlist_jump_table drawlistJump[drawlistCount];
 drawlist_data drawlists[drawlistCount];
 font_data fonts;
 
@@ -214,11 +214,11 @@ void PPUXRender(bool8 sub) {
                 break;
             }
             if (p >= endp) {
-                fprintf(stderr, "PPUXRender: not enough buffer space to load font data at position %u\n", p - fonts.data);
+                fprintf(stderr, "PPUXRender: not enough buffer space to load font data at position %lu\n", p - fonts.data);
                 break;
             }
             if (p + size > endp) {
-                fprintf(stderr, "PPUXRender: font size %u at position %u reaches beyond the buffer\n", size, p - fonts.data);
+                fprintf(stderr, "PPUXRender: font size %u at position %lu reaches beyond the buffer\n", size, p - fonts.data);
                 break;
             }
 
@@ -235,10 +235,10 @@ void PPUXRender(bool8 sub) {
 
     // iterate through the jump table and draw the lists:
     for (int i = 0; i < drawlistCount; i++) {
-        auto & jump = drawlistJump.index[i];
+        auto & jump = drawlistJump[i];
 
         // index is in range [1..drawlistCount]:
-        auto index = ((uint16_t)jump[0]) | ((uint16_t)jump[1] << 8);
+        auto index = jump.index.u16();
         if (index == 0)
             break;
         if (index > drawlistCount) {
@@ -249,7 +249,7 @@ void PPUXRender(bool8 sub) {
         // subtract one for array indexing:
         drawlist_data &dl = drawlists[index - 1];
 
-        uint32_t size = ((uint16_t)dl.size[0]) | ((uint16_t)dl.size[1] << 8);
+        uint32_t size = dl.size.u16();
         if (size == 0)
             continue;
 
@@ -259,6 +259,11 @@ void PPUXRender(bool8 sub) {
         }
 
         auto start = (uint16_t*) dl.data;
+        c.state.reset_state();
+        c.state.layer = static_cast<draw_layer>(jump.target_layer);
+        c.state.priority = jump.target_priority;
+        c.state.xOffsetXY = jump.x_offset.u16();
+        c.state.yOffsetXY = jump.y_offset.u16();
         c.draw_list(start, size);
     }
 }
