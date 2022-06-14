@@ -189,9 +189,9 @@ void PPUXRender(bool8 sub) {
     );
 
     // check if new fonts ready to load:
-    if (fonts.data[0] != 0) {
+    if (fonts.do_load != 0) {
         // clear the count so we don't re-read it next time unless it changes:
-        fonts.data[0] = 0;
+        fonts.do_load = 0;
 
         // clear the font container and load in new fonts:
         fontContainer->clear();

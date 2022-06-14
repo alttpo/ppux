@@ -31,8 +31,9 @@ struct drawlist_data {
 extern drawlist_data drawlists[drawlistCount];
 
 struct font_data {
+    uint8_t do_load;
     // fonts begin with 3 byte little endian size followed by data, repeating size+data until size==0
-    uint8_t data[0xDDE000];
+    uint8_t data[0xDDE000 - 1];
 };
 extern font_data fonts;
 
