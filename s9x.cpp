@@ -185,8 +185,38 @@ void PPUXRender(bool8 sub) {
         spaceContainer
     );
 
+    // check if new fonts ready to load:
+    auto fontCountNew = fonts.data[0];
+    if (fontCountNew != fontContainer->size()) {
+        // clear the count so we don't re-read it next time unless it changes:
+        fonts.data[0] = 0;
+
+        uint8_t* p = fonts.data;
+        for (int i = 0; i < fontCountNew; i++) {
+            // read size of font as 3 bytes little-endian:
+            int size = ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
+
+            // clear the size so we don't re-read it next time:
+            p[0] = 0;
+            p[1] = 0;
+            p[2] = 0;
+            p += 3;
+
+            if (size == 0) {
+                break;
+            }
+
+            const uint8_t *data = p;
+            p += size;
+
+            // load the PCF font data:
+            fontContainer->load_pcf(i, data, size);
+        }
+    }
+
     // iterate through the jump table and draw the lists:
     auto endp = (uint16_t *)drawlistJump.index + drawlistCount;
+    // TODO: replace *p with little-endian uint16_t reads
     for (auto p = (uint16_t *)drawlistJump.index; p != endp && *p != 0; p++) {
         auto index = *p - 1;
         if (index >= drawlistCount)

@@ -576,7 +576,7 @@ struct DataStream {
     BigEndian
   };
 
-  explicit DataStream(const ByteArray& a) : m_a(a), p(a.data()), m_o(LittleEndian) {}
+  explicit DataStream(const ByteArray& a) : p(a.data()), m_o(LittleEndian) {}
 
   DataStream& setByteOrder(ByteOrder o) {
     m_o = o;
@@ -676,7 +676,6 @@ struct DataStream {
   }
 
 private:
-  const ByteArray&  m_a;
   const uint8_t*    p;
 
   ByteOrder m_o;

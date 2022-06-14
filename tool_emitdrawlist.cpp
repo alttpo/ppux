@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "drawlist_fwd.hpp"
 
 using namespace DrawList;
@@ -42,6 +43,9 @@ static uint16_t cmd[] = {
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 
 int main(void) {
+    strcpy((char *)&cmd[(cmd_len-4)], "jsd1982");
+
+    // drawlist:
     uint32_t s = sizeof(cmd);
     printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFF020000);
     printf(" %02X %02X", s & 0xFF, (s >> 8) & 0xFF);
@@ -51,7 +55,7 @@ int main(void) {
     }
     printf("\n");
 
-    // write jump table in 4 bytes:
+    // jump table:
     printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFF800);
     // drawlist 1:
     printf(" %02X %02X", 1 & 0xFF, (1 >> 8) & 0xFF);
