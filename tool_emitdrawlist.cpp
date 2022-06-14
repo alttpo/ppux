@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#include <io.h>
+#include <fcntl.h>
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -41,10 +46,48 @@ static uint16_t cmd[] = {
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 
 int main(void) {
+#ifdef _WIN32
+    setmode(fileno(stdout),O_BINARY);
+    setmode(fileno(stdin),O_BINARY);
+#endif
+
     strcpy((char *)&cmd[(cmd_len-4)], "jsd1982");
 
+    // font:
+    uint32_t s = 0;
+    FILE* f = fopen("kakwafont-12-n.pcf", "rb");
+
+    uint32_t a = 0xFF220000 + 1;
+    // write size of font:
+    fseek(f, 0, SEEK_END);
+    s = ftell(f);
+    printf("WRITE_CORE_MEMORY %lX", a);
+    printf(" %02X %02X %02X", s & 0xFF, (s >> 8) & 0xFF, (s >> 16) & 0xFF);
+    printf("\n");
+    fseek(f, 0, SEEK_SET);
+    a += 3;
+
+    // write chunks of font data:
+    for (;;) {
+        const size_t N = 256;
+        uint8_t buf[N];
+        size_t n = fread(buf, 1, N, f);
+        printf("WRITE_CORE_MEMORY %lX", a);
+        for (size_t i = 0; i < n; i++) {
+            auto c = buf[i];
+            printf(" %02X", c);
+        }
+        printf("\n");
+        a += n;
+        if (n < N) {
+            break;
+        }
+    }
+    // enable font loading now:
+    printf("WRITE_CORE_MEMORY %lX 01\n", 0xFF220000);
+
     // drawlist:
-    uint32_t s = sizeof(cmd);
+    s = sizeof(cmd);
     printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFF020000);
     printf(" %02X %02X", s & 0xFF, (s >> 8) & 0xFF);
     for (int i = 0; i < s; i++) {
@@ -60,8 +103,8 @@ int main(void) {
         OAM,                                // layer
         3,                                  // priority
         // Uncle Passage:
-        2560 & 0xFF, (2560 >> 8) & 0xFF,    // x_offset
-        2560 & 0xFF, (2560 >> 8) & 0xFF     // y_offset
+        2048 & 0xFF, (2048 >> 8) & 0xFF,    // x_offset
+        2690 & 0xFF, (2690 >> 8) & 0xFF     // y_offset
     );
     // end of list:
     printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
