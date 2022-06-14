@@ -186,15 +186,19 @@ void PPUXRender(bool8 sub) {
     );
 
     // check if new fonts ready to load:
-    auto fontCountNew = fonts.data[0];
-    if (fontCountNew != fontContainer->size()) {
+    if (fonts.data[0] != 0) {
         // clear the count so we don't re-read it next time unless it changes:
         fonts.data[0] = 0;
 
+        // clear the font container and load in new fonts:
+        fontContainer->clear();
+
+        int fontIndex = 0;
         uint8_t* p = fonts.data;
-        for (int i = 0; i < fontCountNew; i++) {
+        uint8_t* endp = fonts.data + sizeof(fonts.data);
+        while (p < endp) {
             // read size of font as 3 bytes little-endian:
-            int size = ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
+            auto size = ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
 
             // clear the size so we don't re-read it next time:
             p[0] = 0;
@@ -202,39 +206,57 @@ void PPUXRender(bool8 sub) {
             p[2] = 0;
             p += 3;
 
+            // stopping condition:
             if (size == 0) {
                 break;
             }
+            if (p >= endp) {
+                fprintf(stderr, "PPUXRender: not enough buffer space to load font data at position %u\n", p - fonts.data);
+                break;
+            }
+            if (p + size > endp) {
+                fprintf(stderr, "PPUXRender: font size %u at position %u reaches beyond the buffer\n", size, p - fonts.data);
+                break;
+            }
 
-            const uint8_t *data = p;
+            uint8_t* data = p;
             p += size;
 
             // load the PCF font data:
-            fontContainer->load_pcf(i, data, size);
+            fontContainer->load_pcf(fontIndex++, data, (int)size);
+
+            // clear the font data:
+            memset(data, 0, size);
         }
     }
 
     // iterate through the jump table and draw the lists:
-    auto endp = (uint16_t *)drawlistJump.index + drawlistCount;
-    // TODO: replace *p with little-endian uint16_t reads
-    for (auto p = (uint16_t *)drawlistJump.index; p != endp && *p != 0; p++) {
-        auto index = *p - 1;
-        if (index >= drawlistCount)
+    for (int i = 0; i < drawlistCount; i++) {
+        auto & jump = drawlistJump.index[i];
+
+        // index is in range [1..drawlistCount]:
+        auto index = ((uint16_t)jump[0]) | ((uint16_t)jump[1] << 8);
+        if (index == 0)
             break;
+        if (index > drawlistCount) {
+            fprintf(stderr, "PPUXRender: bad drawlist index %u at position %u; must be in range [1..%u]\n", index, i, drawlistCount);
+            break;
+        }
 
-        drawlist_data &dl = drawlists[index];
+        // subtract one for array indexing:
+        drawlist_data &dl = drawlists[index - 1];
 
-        uint32_t  end = ((uint16_t)dl.size[0]) | ((uint16_t)dl.size[1] << 8);
-        if (end == 0)
+        uint32_t size = ((uint16_t)dl.size[0]) | ((uint16_t)dl.size[1] << 8);
+        if (size == 0)
             continue;
 
-        if (end > sizeof(dl.data)) {
-            fprintf(stderr, "PPUXRender: drawlist[%u] size (%u) too large for buffer size (%u)\n", *p, end, sizeof(dl.data));
+        if (size > sizeof(dl.data)) {
+            fprintf(stderr, "PPUXRender: drawlist[%u] size %u too large for buffer size %u\n", index, size, sizeof(dl.data));
             return;
         }
 
         auto start = (uint16_t*) dl.data;
-        c.draw_list(start, end);
+        c.draw_list(start, size);
     }
 }
 

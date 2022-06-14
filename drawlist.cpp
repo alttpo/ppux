@@ -994,7 +994,9 @@ void FontContainer::load_pcf(int fontindex, const uint8_t* pcf_data, int pcf_siz
     }
 
     // add in new font at requested index:
-    m_fonts.resize(fontindex+1);
+    if (m_fonts.size() < (unsigned)fontindex+1) {
+        m_fonts.resize(fontindex + 1);
+    }
     m_fonts[fontindex].reset(
       new PixelFont::Font(glyphs, index, fontHeight, kmax)
     );
