@@ -98,13 +98,14 @@ int main(void) {
 
     // jump table:
     printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFE000);
+    uint16_t x_offs = 2304;
+    uint16_t y_offs = 8464;
     printf(" %02X %02X %02X %02X %02X %02X %02X %02X",
         1 & 0xFF, (1 >> 8) & 0xFF,          // drawlist 1:
         OAM,                                // layer
         3,                                  // priority
-        // Uncle Passage:
-        2048 & 0xFF, (2048 >> 8) & 0xFF,    // x_offset
-        2690 & 0xFF, (2690 >> 8) & 0xFF     // y_offset
+        x_offs & 0xFF, (x_offs >> 8) & 0xFF,    // x_offset
+        y_offs & 0xFF, (y_offs >> 8) & 0xFF     // y_offset
     );
     // end of list:
     printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
