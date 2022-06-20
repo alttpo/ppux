@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #endif
 
+#include <chrono>
+#include <thread>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -45,7 +47,12 @@ static uint16_t cmd[] = {
 };
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 
+void sleep(int ms) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+}
+
 int main(void) {
+    uint32_t sent = 0;
 #ifdef _WIN32
     setmode(fileno(stdout),O_BINARY);
     setmode(fileno(stdin),O_BINARY);
@@ -61,9 +68,10 @@ int main(void) {
     // write size of font:
     fseek(f, 0, SEEK_END);
     s = ftell(f);
-    printf("WRITE_CORE_MEMORY %lX", a);
-    printf(" %02X %02X %02X", s & 0xFF, (s >> 8) & 0xFF, (s >> 16) & 0xFF);
-    printf("\n");
+    sent = 0;
+    sent += printf("WRITE_CORE_MEMORY %lX", a);
+    sent += printf(" %02X %02X %02X", s & 0xFF, (s >> 8) & 0xFF, (s >> 16) & 0xFF);
+    sent += printf("\n");
     fseek(f, 0, SEEK_SET);
     a += 3;
 
@@ -72,35 +80,42 @@ int main(void) {
         const size_t N = 256;
         uint8_t buf[N];
         size_t n = fread(buf, 1, N, f);
-        printf("WRITE_CORE_MEMORY %lX", a);
+        sent += printf("WRITE_CORE_MEMORY %lX", a);
         for (size_t i = 0; i < n; i++) {
             auto c = buf[i];
-            printf(" %02X", c);
+            sent += printf(" %02X", c);
         }
-        printf("\n");
+        sent += printf("\n");
+        if (sent >= 16384) {
+            sleep(17);
+            sent = 0;
+        }
+
         a += n;
         if (n < N) {
             break;
         }
     }
     // enable font loading now:
-    printf("WRITE_CORE_MEMORY %lX 01\n", 0xFF220000);
+    sent += printf("WRITE_CORE_MEMORY %lX 01\n", 0xFF220000);
 
     // drawlist:
     s = sizeof(cmd);
-    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFF020000);
-    printf(" %02X %02X", s & 0xFF, (s >> 8) & 0xFF);
+    sent += printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFF020000);
+    sent += printf(" %02X %02X", s & 0xFF, (s >> 8) & 0xFF);
     for (int i = 0; i < s; i++) {
         auto c = ((uint8_t*)cmd)[i];
-        printf(" %02X", c);
+        sent += printf(" %02X", c);
     }
-    printf("\n");
+    sent += printf("\n");
+    sleep(17);
+    sent = 0;
 
     // jump table:
-    printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFE000);
+    sent += printf("WRITE_CORE_MEMORY %lX", (uint32_t) 0xFFFFE000);
     uint16_t x_offs = 2304;
     uint16_t y_offs = 8464;
-    printf(" %02X %02X %02X %02X %02X %02X %02X %02X",
+    sent += printf(" %02X %02X %02X %02X %02X %02X %02X %02X",
         1 & 0xFF, (1 >> 8) & 0xFF,              // drawlist 1:
         OAM | 0x80,                             // layer (draw to MAIN not SUB)
         3,                                      // priority
@@ -108,6 +123,8 @@ int main(void) {
         y_offs & 0xFF, (y_offs >> 8) & 0xFF     // y_offset
     );
     // end of list:
-    printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
-    printf("\n");
+    sent += printf(" %02X %02X", 0 & 0xFF, (0 >> 8) & 0xFF);
+    sent += printf("\n");
+    sleep(17);
+    sent = 0;
 }
