@@ -17,9 +17,10 @@ uint16_t spaceCGRAM[0x100 * DrawList::SpaceContainer::MaxCount-1];
 const int maxScreenSize = (256*2)*(240*2);
 uint16 ppuxMainColor[maxScreenSize];
 uint8  ppuxMainDepth[maxScreenSize];
+uint8  ppuxMainLayer[maxScreenSize];
 uint16 ppuxSubColor[maxScreenSize];
 uint8  ppuxSubDepth[maxScreenSize];
-
+uint8  ppuxSubLayer[maxScreenSize];
 
 template<int width, int height>
 struct LayerPlot {
@@ -116,6 +117,7 @@ struct LayerPlot {
                 IPPU.XB[(color >> 10) & 0x1F]   // blue
             );
             ppuxMainDepth[offs] = depthMain;
+            ppuxMainLayer[offs] = target.layer;
         }
         // draw to sub:
         if (target.sub_enable && depthSub >= ppuxSubDepth[offs]) {
@@ -125,6 +127,7 @@ struct LayerPlot {
                 IPPU.XB[(color >> 10) & 0x1F]   // blue
             );
             ppuxSubDepth[offs] = depthSub;
+            ppuxSubLayer[offs] = target.layer;
         }
     }
 };
@@ -136,7 +139,7 @@ Target ppuxTarget;
 std::unique_ptr<Context> ppuxContext;
 LayerPlot<256, 256> ppuxPlot(ppuxTarget);
 
-void PPUXInit() {
+void PpuxInit() {
     memset((void*)&drawlists, 0, sizeof(drawlists));
     memset((void*)&fonts, 0, sizeof(fonts));
     memset((void*)&drawlistJump, 0, sizeof(drawlistJump));
@@ -215,6 +218,8 @@ void PpuxLoadFonts() {
         return;
     }
 
+    //printf("  loadFonts()\n");
+
     // clear the count so we don't re-read it next time unless it changes:
     fonts.do_load = 0;
 
@@ -259,6 +264,10 @@ void PpuxLoadFonts() {
 }
 
 void PpuxStartFrame() {
+    bool cleared = false;
+
+    //printf("SOF\n");
+
     PpuxLoadFonts();
 
     // iterate through the jump table and draw the lists:
@@ -286,6 +295,13 @@ void PpuxStartFrame() {
             return;
         }
 
+        if (!cleared) {
+            // shouldn't need to clear color buffers here since depth should be enough:
+            memset(ppuxMainDepth, 0, sizeof(ppuxMainDepth));
+            memset(ppuxSubDepth, 0, sizeof(ppuxSubDepth));
+            cleared = true;
+        }
+
         auto start = (uint16_t*) dl.data;
         ppuxTarget.layer = jump.layer();
         ppuxTarget.priority = jump.priority();
@@ -295,10 +311,12 @@ void PpuxStartFrame() {
         ppuxState.xOffsetXY = jump.x_offset.u16();
         ppuxState.yOffsetXY = jump.y_offset.u16();
         ppuxContext->draw_list(start, size);
+        //printf("  [%3d] drawlist(%d)\n", IPPU.CurrentLine, index);
     }
 }
 
 void PpuxEndFrame() {
+    //printf("EOF\n");
 #ifdef PPUX_TEST_PATTERN
     strcpy((char *)&cmd[(cmd_len-4)], "jsd1982");
 
@@ -326,32 +344,59 @@ void PpuxEndFrame() {
 #endif
 }
 
-void PpuxRenderLine(bool8 sub) {
+void PpuxRenderLine(int layer, bool8 sub) {
+    static const char* layerNames[6] = {
+        "BG1",
+        "BG2",
+        "BG3",
+        "BG4",
+        "OAM",
+        "COL"
+    };
+
     // merge with main and sub screens with window clipping and colormath:
     uint16 *c;
     uint8  *d;
     uint16 *xc;
     uint8  *xd;
+    uint8  *xr;
+    struct ClipData *p;
 
-    if (!sub) {
-        // main:
-        c = GFX.Screen;
-        d = GFX.ZBuffer;
-        xc = ppuxMainColor;
-        xd = ppuxMainDepth;
-    } else {
-        c = GFX.SubScreen;
-        d = GFX.SubZBuffer;
-        xc = ppuxSubColor;
-        xd = ppuxSubDepth;
-    }
+    // select either main or sub clip structure:
+    p = IPPU.Clip[sub & 1];
 
-    // draw into the snes9x main or sub screen:
-    for (uint32 l = GFX.StartY; l <= GFX.EndY; l++, c += GFX.PPL, d += GFX.PPL, xc += GFX.PPL, xd += GFX.PPL)
-        for (int x = 0; x < IPPU.RenderedScreenWidth; x++) {
-            if (xd[x] >= d[x]) {
-                c[x] = xc[x];
-                d[x] = xd[x];
+    // draw into the main or sub screen:
+    for (int clip = 0; clip < p[layer].Count; clip++) {
+        if (p[layer].DrawMode[clip] == 0) {
+            continue;
+        }
+
+        if (!sub) {
+            // main:
+            c = GFX.Screen + (GFX.StartY * GFX.PPL);
+            d = GFX.ZBuffer + (GFX.StartY * GFX.PPL);
+            xc = ppuxMainColor + (GFX.StartY * GFX.PPL);
+            xd = ppuxMainDepth + (GFX.StartY * GFX.PPL);
+            xr = ppuxMainLayer + (GFX.StartY * GFX.PPL);
+        } else {
+            // sub:
+            c = GFX.SubScreen + (GFX.StartY * GFX.PPL);
+            d = GFX.SubZBuffer + (GFX.StartY * GFX.PPL);
+            xc = ppuxSubColor + (GFX.StartY * GFX.PPL);
+            xd = ppuxSubDepth + (GFX.StartY * GFX.PPL);
+            xr = ppuxSubLayer + (GFX.StartY * GFX.PPL);
+        }
+
+        //printf("  %s[%3d] clip[%1d] Y:%3d..%3d, X:%3d..%3d\n", layerNames[layer], IPPU.CurrentLine, clip, GFX.StartY, GFX.EndY, p[layer].Left[clip], p[layer].Right[clip]);
+
+        for (uint32 l = GFX.StartY; l <= GFX.EndY; l++, c += GFX.PPL, d += GFX.PPL, xc += GFX.PPL, xd += GFX.PPL, xr += GFX.PPL) {
+            for (int x = p[layer].Left[clip]; x < p[layer].Right[clip]; x++) {
+                // TODO: colormath
+                if (xr[x] == layer && xd[x] >= d[x]) {
+                    c[x] = xc[x];
+                    d[x] = xd[x];
+                }
             }
         }
+    }
 }
