@@ -67,9 +67,7 @@ uint8_t* SpaceContainer::get_cgram_space(int index) {
 }
 
 State::State()
-  : layer(OAM),
-    priority(3),
-    text_align(static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP)),
+  : text_align(static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP)),
     font_index(0),
     stroke_color(0x7FFF), outline_color(0x7FFF), fill_color(0x7FFF),
     xOffsetBG(0), yOffsetBG(0),
@@ -78,39 +76,54 @@ State::State()
 {
 }
 
+void State::reset_state() {
+    text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);
+    font_index = 0;
+
+    stroke_color = 0x7fff;
+    fill_color = color_none;
+    outline_color = color_none;
+
+    xOffsetBG = 0;
+    yOffsetBG = 0;
+    xOffsetXY = 0;
+    yOffsetXY = 0;
+    xOffset = 0;
+    yOffset = 0;
+}
+
 void State::calc_offsets() {
-  xOffset = xOffsetBG + xOffsetXY;
-  yOffset = yOffsetBG + yOffsetXY;
+    xOffset = xOffsetBG + xOffsetXY;
+    yOffset = yOffsetBG + yOffsetXY;
+}
+
+Target::Target()
+  : layer(OAM),
+    priority(3),
+    main_enable(true),
+    sub_enable(false)
+{}
+
+void Target::reset_target() {
+    layer = OAM;
+    priority = 3;
+    main_enable = true;
+    sub_enable = false;
 }
 
 Context::Context(
-  const ChooseRenderer& chooseRenderer,
+  State& p_state,
+  Target& p_target,
+  std::shared_ptr<Renderer> renderer,
   const GetBGOffsets& getBGOffsets,
   std::shared_ptr<FontContainer>   fonts,
   std::shared_ptr<SpaceContainer>  spaces
-) : state(),
-    m_chooseRenderer(chooseRenderer), m_getBGOffsets(getBGOffsets),
+) : state(p_state),
+    target(p_target),
+    m_renderer(renderer),
+    m_getBGOffsets(getBGOffsets),
     m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
 {
-}
-
-void State::reset_state() {
-  text_align = static_cast<text_alignment>(TEXT_HALIGN_LEFT | TEXT_VALIGN_TOP);
-  font_index = 0;
-
-  stroke_color = 0x7fff;
-  fill_color = color_none;
-  outline_color = color_none;
-
-  layer = OAM;
-  priority = 3;
-
-  xOffsetBG = 0;
-  yOffsetBG = 0;
-  xOffsetXY = 0;
-  yOffsetXY = 0;
-  xOffset = 0;
-  yOffset = 0;
 }
 
 void Context::draw_list(uint16_t* start, uint32_t end) {
@@ -121,7 +134,6 @@ void Context::draw_list(uint16_t* start, uint32_t end) {
   };
 
   state.calc_offsets();
-  m_chooseRenderer(state, m_renderer);
 
   // process all commands:
   uint16_t* p = start;
@@ -147,10 +159,12 @@ void Context::draw_list(uint16_t* start, uint32_t end) {
     int16_t  x1, y1;
     switch (cmd) {
       case CMD_TARGET: {
-        state.layer = (draw_layer) *d++;
-        state.priority = *d++;
+        target.layer = (draw_layer) *d++;
+        target.priority = *d++;
+        target.main_enable = *d++;
+        target.sub_enable = *d++;
 
-        m_chooseRenderer(state, m_renderer);
+        m_renderer->target_updated();
         break;
       }
       case CMD_BG_OFFSET: {

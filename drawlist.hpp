@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cassert>
 #include <cstring>
 #include <cstdint>
 #include <cstdio>
@@ -85,7 +86,36 @@ private:
   AllocateExtra m_allocate;
 };
 
+struct Target {
+    Target();
+
+    void reset_target();
+
+    draw_layer layer;
+    uint8_t priority;
+    bool main_enable; // draw to main screen
+    bool sub_enable;  // draw to sub screen
+};
+
+struct State {
+    State();
+
+    void reset_state();
+    void calc_offsets();
+
+    text_alignment text_align;
+    uint16_t font_index;
+
+    uint16_t stroke_color, outline_color, fill_color;
+
+    int xOffsetBG, yOffsetBG; // BG relative offset
+    int xOffsetXY, yOffsetXY; // XY relative offset
+    int xOffset, yOffset; // calculated
+};
+
 struct Renderer {
+  virtual void target_updated() = 0;
+
   virtual void draw_pixel(int x, int y) = 0;
   virtual void draw_hline(int x, int y, int w) = 0;
   virtual void draw_vline(int x, int y, int h) = 0;
@@ -98,31 +128,13 @@ struct Renderer {
   virtual void draw_vram_tile(int x0, int y0, int w, int h, bool hflip, bool vflip, uint8_t bpp, uint16_t vram_addr, uint8_t palette, uint8_t* vram, uint8_t* cgram) = 0;
 };
 
-struct State {
-  State();
-
-  void reset_state();
-  void calc_offsets();
-
-  draw_layer layer;
-  uint8_t priority;
-
-  text_alignment text_align;
-  uint16_t font_index;
-
-  uint16_t stroke_color, outline_color, fill_color;
-
-  int xOffsetBG, yOffsetBG; // BG relative offset
-  int xOffsetXY, yOffsetXY; // XY relative offset
-  int xOffset, yOffset; // calculated
-};
-
-typedef std::function<void(State& state, std::shared_ptr<Renderer>& o_target)> ChooseRenderer;
 typedef std::function<void(draw_layer layer, int& xOffset, int& yOffset)> GetBGOffsets;
 
 struct Context {
   Context(
-    const ChooseRenderer& chooseRenderer,
+    State& p_state,
+    Target& p_target,
+    std::shared_ptr<Renderer> renderer,
     const GetBGOffsets& getBGOffsets,
     std::shared_ptr<FontContainer>   fonts,
     std::shared_ptr<SpaceContainer>  spaces
@@ -130,12 +142,12 @@ struct Context {
 
   void draw_list(uint16_t* start, uint32_t end);
 
-  State state;
+  State& state;
+  Target& target;
 
 private:
   std::shared_ptr<Renderer> m_renderer;
 
-  const ChooseRenderer& m_chooseRenderer;
   const GetBGOffsets& m_getBGOffsets;
 
   const std::shared_ptr<FontContainer> m_fonts;

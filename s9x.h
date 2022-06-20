@@ -21,6 +21,10 @@ struct drawlist_jump_table {
     uint8_t target_priority;
     leu16 x_offset;
     leu16 y_offset;
+
+    uint8_t priority() const { return target_priority & 3; }
+    bool main_enable() const { return target_layer & 0x80; }
+    bool sub_enable() const { return target_layer & 0x40; }
 };
 extern drawlist_jump_table drawlistJump[drawlistCount];
 

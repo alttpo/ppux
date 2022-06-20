@@ -296,6 +296,10 @@ struct Outliner {
 
   PLOT& plot;
 
+  void set_target(const Target& target) {
+      plot.set_target(target);
+  }
+
   void operator() (int x, int y, uint16_t color) {
     if (DrawList::bounds_check<width, height>(x-1, y-1)) {
       plot(x-1, y-1, color);
@@ -328,14 +332,19 @@ struct Outliner {
 
 template<int width, int height, typename PLOT>
 struct GenericRenderer : public DrawList::Renderer {
-  GenericRenderer(State& p_state, PLOT p_plot)
-    : state(p_state), plot(p_plot), xo(state.xOffset), yo(state.yOffset)
+  explicit GenericRenderer(State& p_state, PLOT p_plot)
+    : state(p_state), plot(p_plot), xo(p_state.xOffset), yo(p_state.yOffset)
   {
   }
 
   State& state;
   PLOT plot;
-  int &xo, &yo;
+  int &xo;
+  int &yo;
+
+  void target_updated() override {
+      plot.target_updated();
+  }
 
   void draw_pixel(int x0, int y0) override {
     DrawList::draw_pixel<width, height>(x0+xo, y0+yo, state.outline_color, Outliner<width, height, PLOT>(plot));

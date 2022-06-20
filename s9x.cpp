@@ -14,6 +14,160 @@ font_data fonts;
 uint16_t spaceVRAM[0x8000 * DrawList::SpaceContainer::MaxCount-1];
 uint16_t spaceCGRAM[0x100 * DrawList::SpaceContainer::MaxCount-1];
 
+const int maxScreenSize = (256*2)*(240*2);
+uint16 ppuxMainColor[maxScreenSize];
+uint8  ppuxMainDepth[maxScreenSize];
+uint16 ppuxSubColor[maxScreenSize];
+uint8  ppuxSubDepth[maxScreenSize];
+
+
+template<int width, int height>
+struct LayerPlot {
+    LayerPlot(Target& p_target)
+      : target(p_target), depthMain(31), depthSub(63)
+    {}
+
+    Target& target;
+    uint8_t depthMain, depthSub;
+
+    void target_updated() {
+        depthMain = calcDepth(target.layer, target.priority, false);
+        depthSub = calcDepth(target.layer, target.priority, true);
+    }
+
+    // layer is one of `(BG1,BG2,BG3,OAM,BACK)`
+    // priority is 0 or 1 for BG layers, and 0..3 for OAM layer
+    static uint8_t calcDepth(DrawList::draw_layer layer, uint8_t priority, bool sub) {
+        int D;
+
+        if (!sub)
+        {
+            D = 32;
+        }
+        else
+        {
+            D = (Memory.FillRAM[0x2130] & 2) << 4; // 'do math' depth flag
+        }
+
+        if (layer == DrawList::OAM)
+        {
+            return (D + 4) + (priority * 4);
+        }
+        else if (layer >= DrawList::COL)
+        {
+            return D;
+        }
+
+        switch (PPU.BGMode)
+        {
+            case 0:
+                switch (layer) {
+                    case DrawList::BG1: return priority ? D + 15 : D + 11;
+                    case DrawList::BG2: return priority ? D + 14 : D + 10;
+                    case DrawList::BG3: return priority ? D +  7 : D +  3;
+                    case DrawList::BG4: return priority ? D +  6 : D +  2;
+                    default: return D;
+                }
+
+            case 1:
+                switch (layer) {
+                    case DrawList::BG1: return priority ? D + 15 : D + 11;
+                    case DrawList::BG2: return priority ? D + 14 : D + 10;
+                    case DrawList::BG3: return priority ? D + (PPU.BG3Priority ? 17 : 7) : D +  3;
+                    default: return D;
+                }
+
+            case 2:
+            case 3:
+            case 4:
+            case 5:
+                switch (layer) {
+                    case DrawList::BG1: return priority ? D + 15 : D + 7;
+                    case DrawList::BG2: return priority ? D + 11 : D + 3;
+                    default: return D;
+                }
+
+            case 6:
+                switch (layer) {
+                    case DrawList::BG1: return priority ? D + 15 : D + 7;
+                    default: return D;
+                }
+
+            case 7:
+            default:
+                return D;
+        }
+    }
+
+    void operator() (int x, int y, uint16_t color) {
+        // coords are already xOffset/yOffset adjusted by Renderer implementation
+        // coords MUST be bounds checked before calling plot()
+        assert( (bounds_check<width, height>(x, y)) );
+
+        // draw to any PPU layer:
+        auto offs = (y * GFX.PPL) + x;
+
+        // draw to main:
+        if (target.main_enable && depthMain >= ppuxMainDepth[offs]) {
+            ppuxMainColor[offs] = BUILD_PIXEL(
+                IPPU.XB[color & 0x1F],          // red
+                IPPU.XB[(color >> 5) & 0x1F],   // green
+                IPPU.XB[(color >> 10) & 0x1F]   // blue
+            );
+            ppuxMainDepth[offs] = depthMain;
+        }
+        // draw to sub:
+        if (target.sub_enable && depthSub >= ppuxSubDepth[offs]) {
+            ppuxSubColor[offs] = BUILD_PIXEL(
+                IPPU.XB[color & 0x1F],          // red
+                IPPU.XB[(color >> 5) & 0x1F],   // green
+                IPPU.XB[(color >> 10) & 0x1F]   // blue
+            );
+            ppuxSubDepth[offs] = depthSub;
+        }
+    }
+};
+
+using LayerRenderer = DrawList::GenericRenderer<256, 256, LayerPlot<256, 256>>;
+
+State ppuxState;
+Target ppuxTarget;
+std::unique_ptr<Context> ppuxContext;
+
+void PPUXInit() {
+    memset((void*)&drawlists, 0, sizeof(drawlists));
+    memset((void*)&fonts, 0, sizeof(fonts));
+    memset((void*)&drawlistJump, 0, sizeof(drawlistJump));
+    memset(spaceVRAM, 0, sizeof(spaceVRAM));
+    memset(spaceCGRAM, 0, sizeof(spaceCGRAM));
+
+    fontContainer = std::make_shared<FontContainer>();
+    spaceContainer = std::make_shared<SpaceContainer>(
+        std::make_shared<LocalSpace>(Memory.VRAM, reinterpret_cast<uint8_t *>(PPU.CGDATA)),
+        [](int index) {
+            return std::make_shared<LocalSpace>(
+                (uint8_t*)spaceVRAM + index*0x10000*sizeof(uint16_t),
+                (uint8_t*)spaceCGRAM + index*0x200*sizeof(uint16_t)
+            );
+        }
+    );
+
+    ppuxContext = std::make_unique<Context>(
+        ppuxState,
+        ppuxTarget,
+        (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(
+            ppuxState,
+            LayerPlot<256, 256>(ppuxTarget)
+        ),
+        [](draw_layer layer, int& xOffset, int& yOffset) {
+            xOffset = PPU.BG[layer].HOffset;
+            yOffset = PPU.BG[layer].VOffset;
+        },
+        fontContainer,
+        spaceContainer
+    );
+}
+
 #ifdef PPUX_TEST_PATTERN
 static uint16_t cmd[] = {
         3, CMD_TARGET, OAM, 3,
@@ -53,185 +207,57 @@ static uint16_t cmd[] = {
 #define cmd_len (sizeof(cmd) / sizeof(uint16_t))
 #endif
 
-// layer is one of `(BG1,BG2,BG3,OAM,BACK)`
-// priority is 0 or 1 for BG layers, and 0..3 for OAM layer
-uint8_t PPUXCalcDepth(DrawList::draw_layer layer, uint8_t priority, bool sub) {
-    int D;
-
-    if (!sub)
-    {
-        D = 32;
-    }
-    else
-    {
-        D = (Memory.FillRAM[0x2130] & 2) << 4; // 'do math' depth flag
-    }
-
-    if (layer == DrawList::OAM)
-    {
-        return (D + 4) + (priority * 4);
-    }
-    else if (layer >= DrawList::COL)
-    {
-        return D;
-    }
-
-    switch (PPU.BGMode)
-    {
-        case 0:
-            switch (layer) {
-                case DrawList::BG1: return priority ? D + 15 : D + 11;
-                case DrawList::BG2: return priority ? D + 14 : D + 10;
-                case DrawList::BG3: return priority ? D +  7 : D +  3;
-                case DrawList::BG4: return priority ? D +  6 : D +  2;
-                default: return D;
-            }
-
-        case 1:
-            switch (layer) {
-                case DrawList::BG1: return priority ? D + 15 : D + 11;
-                case DrawList::BG2: return priority ? D + 14 : D + 10;
-                case DrawList::BG3: return priority ? D + (PPU.BG3Priority ? 17 : 7) : D +  3;
-                default: return D;
-            }
-
-        case 2:
-        case 3:
-        case 4:
-        case 5:
-            switch (layer) {
-                case DrawList::BG1: return priority ? D + 15 : D + 7;
-                case DrawList::BG2: return priority ? D + 11 : D + 3;
-                default: return D;
-            }
-
-        case 6:
-            switch (layer) {
-                case DrawList::BG1: return priority ? D + 15 : D + 7;
-                default: return D;
-            }
-
-        case 7:
-        default:
-            return D;
-    }
-}
-
-template<int width, int height>
-struct LayerPlot {
-    LayerPlot(State& p_state, bool p_sub)
-      : state(p_state), depth(PPUXCalcDepth(p_state.layer, p_state.priority, p_sub))
-    {
-    }
-
-    State& state;
-    uint8_t depth;
-
-    void operator() (int x, int y, uint16_t color) {
-        // coords are already xOffset/yOffset adjusted by Renderer implementation
-#if 0
-        // coords MUST be bounds checked before calling plot()
-        if (!bounds_check<width, height>(x, y)) {
-            return;
-        }
-#endif
-
-        // draw to any PPU layer:
-        auto offs = (y * GFX.PPL) + x;
-        // compare depth:
-        if (depth >= GFX.DB[offs]) {
-            // convert BGR555 to RGB565 (or whatever PIXEL_FORMAT is):
-            GFX.S[offs] = BUILD_PIXEL(
-                IPPU.XB[color & 0x1F],          // red
-                IPPU.XB[(color >> 5) & 0x1F],   // green
-                IPPU.XB[(color >> 10) & 0x1F]   // blue
-            );
-            GFX.DB[offs] = depth;
-        }
-    }
-};
-
-using LayerRenderer = DrawList::GenericRenderer<256, 256, LayerPlot<256, 256>>;
-
-void PPUXInit() {
-    memset((void*)&drawlists, 0, sizeof(drawlists));
-    memset((void*)&fonts, 0, sizeof(fonts));
-    memset((void*)&drawlistJump, 0, sizeof(drawlistJump));
-    memset(spaceVRAM, 0, sizeof(spaceVRAM));
-    memset(spaceCGRAM, 0, sizeof(spaceCGRAM));
-
-    fontContainer = std::make_shared<FontContainer>();
-    spaceContainer = std::make_shared<SpaceContainer>(
-        std::make_shared<LocalSpace>(Memory.VRAM, reinterpret_cast<uint8_t *>(PPU.CGDATA)),
-        [](int index) {
-            return std::make_shared<LocalSpace>(
-                (uint8_t*)spaceVRAM + index*0x10000*sizeof(uint16_t),
-                (uint8_t*)spaceCGRAM + index*0x200*sizeof(uint16_t)
-            );
-        }
-    );
-}
-
-void PPUXRender(bool8 sub) {
-    Context c(
-        [=](State& state, std::shared_ptr<Renderer>& o_target){
-            o_target = (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(
-                state,
-                LayerPlot<256, 256>(state, (bool)sub)
-            );
-        },
-        [=](draw_layer layer, int& xOffset, int& yOffset) {
-            xOffset = PPU.BG[layer].HOffset;
-            yOffset = PPU.BG[layer].VOffset;
-        },
-        fontContainer,
-        spaceContainer
-    );
-
+void PpuxLoadFonts() {
     // check if new fonts ready to load:
-    if (fonts.do_load != 0) {
-        // clear the count so we don't re-read it next time unless it changes:
-        fonts.do_load = 0;
-
-        // clear the font container and load in new fonts:
-        fontContainer->clear();
-
-        int fontIndex = 0;
-        uint8_t* p = fonts.data;
-        uint8_t* endp = fonts.data + sizeof(fonts.data);
-        while (p < endp) {
-            // read size of font as 3 bytes little-endian:
-            auto size = ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
-
-            // clear the size so we don't re-read it next time:
-            p[0] = 0;
-            p[1] = 0;
-            p[2] = 0;
-            p += 3;
-
-            // stopping condition:
-            if (size == 0) {
-                break;
-            }
-            if (p >= endp) {
-                fprintf(stderr, "PPUXRender: not enough buffer space to load font data at position %lu\n", p - fonts.data);
-                break;
-            }
-            if (p + size > endp) {
-                fprintf(stderr, "PPUXRender: font size %u at position %lu reaches beyond the buffer\n", size, p - fonts.data);
-                break;
-            }
-
-            uint8_t* data = p;
-            p += size;
-
-            // load the PCF font data:
-            fontContainer->load_pcf(fontIndex++, data, (int)size);
-
-            // clear the font data:
-            memset(data, 0, size);
-        }
+    if (fonts.do_load == 0) {
+        return;
     }
+
+    // clear the count so we don't re-read it next time unless it changes:
+    fonts.do_load = 0;
+
+    // clear the font container and load in new fonts:
+    fontContainer->clear();
+
+    int fontIndex = 0;
+    uint8_t* p = fonts.data;
+    uint8_t* endp = fonts.data + sizeof(fonts.data);
+    while (p < endp) {
+        // read size of font as 3 bytes little-endian:
+        auto size = ((uint32_t)p[0]) | ((uint32_t)p[1] << 8) | ((uint32_t)p[2] << 16);
+
+        // clear the size so we don't re-read it next time:
+        p[0] = 0;
+        p[1] = 0;
+        p[2] = 0;
+        p += 3;
+
+        // stopping condition:
+        if (size == 0) {
+            break;
+        }
+        if (p >= endp) {
+            fprintf(stderr, "PPUXRender: not enough buffer space to load font data at position %lu\n", p - fonts.data);
+            break;
+        }
+        if (p + size > endp) {
+            fprintf(stderr, "PPUXRender: font size %u at position %lu reaches beyond the buffer\n", size, p - fonts.data);
+            break;
+        }
+
+        uint8_t* data = p;
+        p += size;
+
+        // load the PCF font data:
+        fontContainer->load_pcf(fontIndex++, data, (int)size);
+
+        // clear the font data:
+        memset(data, 0, size);
+    }
+}
+
+void PpuxStartFrame() {
+    PpuxLoadFonts();
 
     // iterate through the jump table and draw the lists:
     for (int i = 0; i < drawlistCount; i++) {
@@ -259,16 +285,18 @@ void PPUXRender(bool8 sub) {
         }
 
         auto start = (uint16_t*) dl.data;
-        c.state.reset_state();
-        c.state.layer = static_cast<draw_layer>(jump.target_layer);
-        c.state.priority = jump.target_priority;
-        c.state.xOffsetXY = jump.x_offset.u16();
-        c.state.yOffsetXY = jump.y_offset.u16();
-        c.draw_list(start, size);
+        ppuxTarget.layer = static_cast<draw_layer>(jump.target_layer);
+        ppuxTarget.priority = jump.priority();
+        ppuxTarget.main_enable = jump.main_enable();
+        ppuxTarget.sub_enable = jump.sub_enable();
+        ppuxState.reset_state();
+        ppuxState.xOffsetXY = jump.x_offset.u16();
+        ppuxState.yOffsetXY = jump.y_offset.u16();
+        ppuxContext->draw_list(start, size);
     }
 }
 
-void PPUXUpdate() {
+void PpuxEndFrame() {
 #ifdef PPUX_TEST_PATTERN
     strcpy((char *)&cmd[(cmd_len-4)], "jsd1982");
 
@@ -294,4 +322,34 @@ void PPUXUpdate() {
         cmd[cmd_len-20] = 240;
     }
 #endif
+}
+
+void PpuxRenderLine(bool8 sub) {
+    // merge with main and sub screens with window clipping and colormath:
+    uint16 *c;
+    uint8  *d;
+    uint16 *xc;
+    uint8  *xd;
+
+    if (!sub) {
+        // main:
+        c = GFX.Screen;
+        d = GFX.ZBuffer;
+        xc = ppuxMainColor;
+        xd = ppuxMainDepth;
+    } else {
+        c = GFX.SubScreen;
+        d = GFX.SubZBuffer;
+        xc = ppuxSubColor;
+        xd = ppuxSubDepth;
+    }
+
+    // draw into the snes9x main or sub screen:
+    for (uint32 l = GFX.StartY; l <= GFX.EndY; l++, c += GFX.PPL, d += GFX.PPL, xc += GFX.PPL, xd += GFX.PPL)
+        for (int x = 0; x < IPPU.RenderedScreenWidth; x++) {
+            if (xd[x] >= d[x]) {
+                c[x] = xc[x];
+                d[x] = xd[x];
+            }
+        }
 }

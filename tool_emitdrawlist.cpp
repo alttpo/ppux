@@ -101,9 +101,9 @@ int main(void) {
     uint16_t x_offs = 2304;
     uint16_t y_offs = 8464;
     printf(" %02X %02X %02X %02X %02X %02X %02X %02X",
-        1 & 0xFF, (1 >> 8) & 0xFF,          // drawlist 1:
-        OAM,                                // layer
-        3,                                  // priority
+        1 & 0xFF, (1 >> 8) & 0xFF,              // drawlist 1:
+        OAM | 0x80,                             // layer (draw to MAIN not SUB)
+        3,                                      // priority
         x_offs & 0xFF, (x_offs >> 8) & 0xFF,    // x_offset
         y_offs & 0xFF, (y_offs >> 8) & 0xFF     // y_offset
     );
