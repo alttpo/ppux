@@ -22,7 +22,7 @@ uint8_t* ExtraSpace::cgram_data() { return cgram; }
 uint32_t ExtraSpace::cgram_size() const { return 0x200; }
 
 SpaceContainer::SpaceContainer(std::shared_ptr<Space> localSpace, AllocateExtra allocateExtra) :
-    m_localSpace(std::move(localSpace)), m_allocate(allocateExtra)
+    m_localSpace(localSpace), m_allocate(allocateExtra)
 {
   m_spaces.resize(MaxCount);
 }
@@ -122,7 +122,7 @@ Context::Context(
     target(p_target),
     m_renderer(renderer),
     m_getBGOffsets(getBGOffsets),
-    m_fonts(std::move(fonts)), m_spaces(std::move(spaces))
+    m_fonts(fonts), m_spaces(spaces)
 {
 }
 
@@ -134,6 +134,7 @@ void Context::draw_list(uint16_t* start, uint32_t end) {
   };
 
   state.calc_offsets();
+  m_renderer->target_updated();
 
   // process all commands:
   uint16_t* p = start;

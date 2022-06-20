@@ -23,9 +23,10 @@ uint8  ppuxSubDepth[maxScreenSize];
 
 template<int width, int height>
 struct LayerPlot {
-    LayerPlot(Target& p_target)
+    explicit LayerPlot(Target& p_target)
       : target(p_target), depthMain(31), depthSub(63)
-    {}
+    {
+    }
 
     Target& target;
     uint8_t depthMain, depthSub;
@@ -133,6 +134,7 @@ using LayerRenderer = DrawList::GenericRenderer<256, 256, LayerPlot<256, 256>>;
 State ppuxState;
 Target ppuxTarget;
 std::unique_ptr<Context> ppuxContext;
+LayerPlot<256, 256> ppuxPlot(ppuxTarget);
 
 void PPUXInit() {
     memset((void*)&drawlists, 0, sizeof(drawlists));
@@ -157,7 +159,7 @@ void PPUXInit() {
         ppuxTarget,
         (std::shared_ptr<Renderer>) std::make_shared<LayerRenderer>(
             ppuxState,
-            LayerPlot<256, 256>(ppuxTarget)
+            ppuxPlot
         ),
         [](draw_layer layer, int& xOffset, int& yOffset) {
             xOffset = PPU.BG[layer].HOffset;
@@ -285,7 +287,7 @@ void PpuxStartFrame() {
         }
 
         auto start = (uint16_t*) dl.data;
-        ppuxTarget.layer = static_cast<draw_layer>(jump.target_layer);
+        ppuxTarget.layer = jump.layer();
         ppuxTarget.priority = jump.priority();
         ppuxTarget.main_enable = jump.main_enable();
         ppuxTarget.sub_enable = jump.sub_enable();

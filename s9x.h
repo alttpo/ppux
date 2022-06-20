@@ -22,6 +22,7 @@ struct drawlist_jump_table {
     leu16 x_offset;
     leu16 y_offset;
 
+    DrawList::draw_layer layer() const { return static_cast<DrawList::draw_layer>(target_layer & 0x3F); }
     uint8_t priority() const { return target_priority & 3; }
     bool main_enable() const { return target_layer & 0x80; }
     bool sub_enable() const { return target_layer & 0x40; }

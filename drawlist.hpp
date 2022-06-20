@@ -87,7 +87,7 @@ private:
 };
 
 struct Target {
-    Target();
+    explicit Target();
 
     void reset_target();
 
@@ -98,7 +98,7 @@ struct Target {
 };
 
 struct State {
-    State();
+    explicit State();
 
     void reset_state();
     void calc_offsets();
@@ -131,7 +131,7 @@ struct Renderer {
 typedef std::function<void(draw_layer layer, int& xOffset, int& yOffset)> GetBGOffsets;
 
 struct Context {
-  Context(
+  explicit Context(
     State& p_state,
     Target& p_target,
     std::shared_ptr<Renderer> renderer,
@@ -146,9 +146,9 @@ struct Context {
   Target& target;
 
 private:
-  std::shared_ptr<Renderer> m_renderer;
+  const std::shared_ptr<Renderer> m_renderer;
 
-  const GetBGOffsets& m_getBGOffsets;
+  const GetBGOffsets m_getBGOffsets;
 
   const std::shared_ptr<FontContainer> m_fonts;
   const std::shared_ptr<SpaceContainer> m_spaces;

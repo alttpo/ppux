@@ -14,7 +14,7 @@ inline bool bounds_check(int x, int y) {
 }
 
 template<int width, int height, typename PLOT>
-void draw_pixel(int x0, int y0, uint16_t color, PLOT plot) {
+void draw_pixel(int x0, int y0, uint16_t color, PLOT& plot) {
   if (!is_color_visible(color))
     return;
 
@@ -25,7 +25,7 @@ void draw_pixel(int x0, int y0, uint16_t color, PLOT plot) {
 }
 
 template<int width, int height, typename PLOT>
-void draw_hline(int x0, int y0, int w, uint16_t color, PLOT plot) {
+void draw_hline(int x0, int y0, int w, uint16_t color, PLOT& plot) {
   if (!is_color_visible(color))
     return;
 
@@ -41,7 +41,7 @@ void draw_hline(int x0, int y0, int w, uint16_t color, PLOT plot) {
 }
 
 template<int width, int height, typename PLOT>
-void draw_vline(int x0, int y0, int h, uint16_t color, PLOT plot) {
+void draw_vline(int x0, int y0, int h, uint16_t color, PLOT& plot) {
   if (!is_color_visible(color))
     return;
 
@@ -57,7 +57,7 @@ void draw_vline(int x0, int y0, int h, uint16_t color, PLOT plot) {
 }
 
 template<int width, int height, typename PLOT>
-void draw_rect(int x0, int y0, int w, int h, uint16_t color, PLOT plot) {
+void draw_rect(int x0, int y0, int w, int h, uint16_t color, PLOT& plot) {
   if (!is_color_visible(color))
     return;
 
@@ -68,7 +68,7 @@ void draw_rect(int x0, int y0, int w, int h, uint16_t color, PLOT plot) {
 }
 
 template<int width, int height, typename PLOT>
-void draw_rect_fill(int x0, int y0, int w, int h, uint16_t fill_color, PLOT plot) {
+void draw_rect_fill(int x0, int y0, int w, int h, uint16_t fill_color, PLOT& plot) {
   if (!is_color_visible(fill_color))
     return;
 
@@ -86,7 +86,7 @@ void draw_rect_fill(int x0, int y0, int w, int h, uint16_t fill_color, PLOT plot
 }
 
 template<int width, int height, typename PLOT>
-void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
+void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT& plot) {
   if (!is_color_visible(color))
     return;
 
@@ -167,7 +167,7 @@ void draw_line(int x1, int y1, int x2, int y2, uint16_t color, PLOT plot) {
 }
 
 template<int width, int height, typename PLOT>
-uint16_t* draw_image(int x0, int y0, int w, int h, uint16_t* d, PLOT plot) {
+uint16_t* draw_image(int x0, int y0, int w, int h, uint16_t* d, PLOT& plot) {
   for (int y = y0; y < y0+h; y++) {
     if (y < 0) {
       d += w;
@@ -204,7 +204,7 @@ void draw_vram_tile(
   uint8_t* vram,
   uint8_t* cgram,
 
-  PLOT plot
+  PLOT& plot
 ) {
   // draw tile:
   unsigned sy = y0;
@@ -296,8 +296,8 @@ struct Outliner {
 
   PLOT& plot;
 
-  void set_target(const Target& target) {
-      plot.set_target(target);
+  void target_updated() {
+      plot.target_updated();
   }
 
   void operator() (int x, int y, uint16_t color) {
@@ -332,13 +332,14 @@ struct Outliner {
 
 template<int width, int height, typename PLOT>
 struct GenericRenderer : public DrawList::Renderer {
-  explicit GenericRenderer(State& p_state, PLOT p_plot)
-    : state(p_state), plot(p_plot), xo(p_state.xOffset), yo(p_state.yOffset)
+  explicit GenericRenderer(State& p_state, PLOT& p_plot)
+    : state(p_state), plot(p_plot), outliner(p_plot), xo(p_state.xOffset), yo(p_state.yOffset)
   {
   }
 
   State& state;
-  PLOT plot;
+  PLOT& plot;
+  Outliner<width, height, PLOT> outliner;
   int &xo;
   int &yo;
 
@@ -347,22 +348,22 @@ struct GenericRenderer : public DrawList::Renderer {
   }
 
   void draw_pixel(int x0, int y0) override {
-    DrawList::draw_pixel<width, height>(x0+xo, y0+yo, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_pixel<width, height>(x0+xo, y0+yo, state.outline_color, outliner);
     DrawList::draw_pixel<width, height>(x0+xo, y0+yo, state.stroke_color, plot);
   }
 
   void draw_hline(int x0, int y0, int w) override {
-    DrawList::draw_hline<width, height>(x0+xo, y0+yo, w, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_hline<width, height>(x0+xo, y0+yo, w, state.outline_color, outliner);
     DrawList::draw_hline<width, height>(x0+xo, y0+yo, w, state.stroke_color, plot);
   }
 
   void draw_vline(int x0, int y0, int h) override {
-    DrawList::draw_vline<width, height>(x0+xo, y0+yo, h, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_vline<width, height>(x0+xo, y0+yo, h, state.outline_color, outliner);
     DrawList::draw_vline<width, height>(x0+xo, y0+yo, h, state.stroke_color, plot);
   }
 
   void draw_rect(int x0, int y0, int w, int h) override {
-    DrawList::draw_rect<width, height>(x0+xo, y0+yo, w, h, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_rect<width, height>(x0+xo, y0+yo, w, h, state.outline_color, outliner);
     DrawList::draw_rect<width, height>(x0+xo, y0+yo, w, h, state.stroke_color, plot);
   }
 
@@ -371,7 +372,7 @@ struct GenericRenderer : public DrawList::Renderer {
   }
 
   void draw_line(int x0, int y0, int x1, int y1) override {
-    DrawList::draw_line<width, height>(x0+xo, y0+yo, x1+xo, y1+yo, state.outline_color, Outliner<width, height, PLOT>(plot));
+    DrawList::draw_line<width, height>(x0+xo, y0+yo, x1+xo, y1+yo, state.outline_color, outliner);
     DrawList::draw_line<width, height>(x0+xo, y0+yo, x1+xo, y1+yo, state.stroke_color, plot);
   }
 
@@ -396,7 +397,7 @@ struct GenericRenderer : public DrawList::Renderer {
       y0 -= font.m_height;
     }
 
-    font.draw_text_utf8<width, height>(s, len, x0+xo, y0+yo, state.outline_color, Outliner<width, height, PLOT>(plot));
+    font.draw_text_utf8<width, height>(s, len, x0+xo, y0+yo, state.outline_color, outliner);
     font.draw_text_utf8<width, height>(s, len, x0+xo, y0+yo, state.stroke_color, plot);
   }
 
