@@ -1,6 +1,7 @@
 // MUST be #included from snes9x gfx.cpp after all existing header #includes
 
 #include "s9x.h"
+#include "tileimpl.h"
 
 using namespace DrawList;
 
@@ -344,6 +345,77 @@ void PpuxEndFrame() {
 #endif
 }
 
+template<class MATH>
+void PpuxLineMainMathTmpl(
+    int    left,
+    int    right,
+    uint8  layer,
+    uint16 *mc,
+    uint8  *md,
+    const uint16 *sc,
+    const uint8  *sd,
+    const uint16 *xc,
+    const uint8  *xd,
+    const uint8  *xr
+) {
+    for (uint32 l = GFX.StartY; l <= GFX.EndY; l++,
+            mc += GFX.PPL, md += GFX.PPL,
+            sc += GFX.PPL, sd += GFX.PPL,
+            xc += GFX.PPL, xd += GFX.PPL, xr += GFX.PPL) {
+        for (int x = left; x < right; x++) {
+            if (xr[x] == layer && xd[x] >= md[x]) {
+                mc[x] = MATH::Calc(xc[x], sc[x], sd[x]);
+                md[x] = xd[x];
+            }
+        }
+    }
+}
+
+typedef void (*PpuxLineMainMathFn)(
+    int    left,
+    int    right,
+    uint8  layer,
+    uint16 *mc,
+    uint8  *md,
+    const uint16 *sc,
+    const uint8  *sd,
+    const uint16 *xc,
+    const uint8  *xd,
+    const uint8  *xr
+);
+PpuxLineMainMathFn PpuxLineMainMath[9] =
+{
+    PpuxLineMainMathTmpl<TileImpl::Blend_None>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_Add>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_AddF1_2>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_AddS1_2>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_Sub>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_SubF1_2>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_SubS1_2>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_AddBrightness>,
+    PpuxLineMainMathTmpl<TileImpl::Blend_AddS1_2Brightness>,
+};
+
+void PpuxPixelSub(
+    int    left,
+    int    right,
+    uint8  layer,
+    uint16 *c,
+    uint8  *d,
+    const uint16 *xc,
+    const uint8  *xd,
+    const uint8  *xr
+) {
+    for (uint32 l = GFX.StartY; l <= GFX.EndY; l++, c += GFX.PPL, d += GFX.PPL, xc += GFX.PPL, xd += GFX.PPL, xr += GFX.PPL) {
+        for (int x = left; x < right; x++) {
+            if (xr[x] == layer && xd[x] >= d[x]) {
+                c[x] = xc[x];
+                d[x] = xd[x];
+            }
+        }
+    }
+}
+
 void PpuxRenderLine(int layer, bool8 sub) {
     static const char* layerNames[6] = {
         "BG1",
@@ -354,16 +426,8 @@ void PpuxRenderLine(int layer, bool8 sub) {
         "COL"
     };
 
-    // merge with main and sub screens with window clipping and colormath:
-    uint16 *c;
-    uint8  *d;
-    uint16 *xc;
-    uint8  *xd;
-    uint8  *xr;
-    struct ClipData *p;
-
-    // select either main or sub clip structure:
-    p = IPPU.Clip[sub & 1];
+    struct ClipData *p = IPPU.Clip[sub & 1];
+    uint32 ppl = GFX.StartY * GFX.PPL;
 
     // draw into the main or sub screen:
     for (int clip = 0; clip < p[layer].Count; clip++) {
@@ -371,32 +435,65 @@ void PpuxRenderLine(int layer, bool8 sub) {
             continue;
         }
 
-        if (!sub) {
-            // main:
-            c = GFX.Screen + (GFX.StartY * GFX.PPL);
-            d = GFX.ZBuffer + (GFX.StartY * GFX.PPL);
-            xc = ppuxMainColor + (GFX.StartY * GFX.PPL);
-            xd = ppuxMainDepth + (GFX.StartY * GFX.PPL);
-            xr = ppuxMainLayer + (GFX.StartY * GFX.PPL);
-        } else {
+        if (sub) {
             // sub:
-            c = GFX.SubScreen + (GFX.StartY * GFX.PPL);
-            d = GFX.SubZBuffer + (GFX.StartY * GFX.PPL);
-            xc = ppuxSubColor + (GFX.StartY * GFX.PPL);
-            xd = ppuxSubDepth + (GFX.StartY * GFX.PPL);
-            xr = ppuxSubLayer + (GFX.StartY * GFX.PPL);
-        }
+            uint16 *c = GFX.SubScreen + ppl;
+            uint8  *d = GFX.SubZBuffer + ppl;
+            uint16 *xc = ppuxSubColor + ppl;
+            uint8  *xd = ppuxSubDepth + ppl;
+            uint8  *xr = ppuxSubLayer + ppl;
 
-        //printf("  %s[%3d] clip[%1d] Y:%3d..%3d, X:%3d..%3d\n", layerNames[layer], IPPU.CurrentLine, clip, GFX.StartY, GFX.EndY, p[layer].Left[clip], p[layer].Right[clip]);
+            PpuxPixelSub(
+                p[layer].Left[clip], p[layer].Right[clip],
+                layer,
+                c, d,
+                xc, xd, xr
+            );
+        } else {
+            // main:
+            bool enableMath = (Memory.FillRAM[0x2131] & (1 << layer));
 
-        for (uint32 l = GFX.StartY; l <= GFX.EndY; l++, c += GFX.PPL, d += GFX.PPL, xc += GFX.PPL, xd += GFX.PPL, xr += GFX.PPL) {
-            for (int x = p[layer].Left[clip]; x < p[layer].Right[clip]; x++) {
-                // TODO: colormath
-                if (xr[x] == layer && xd[x] >= d[x]) {
-                    c[x] = xc[x];
-                    d[x] = xd[x];
+            uint16 *mc = GFX.Screen + ppl;
+            uint8  *md = GFX.ZBuffer + ppl;
+            uint16 *sc = GFX.SubScreen + ppl;
+            uint8  *sd = GFX.SubZBuffer + ppl;
+            uint16 *xc = ppuxMainColor + ppl;
+            uint8  *xd = ppuxMainDepth + ppl;
+            uint8  *xr = ppuxMainLayer + ppl;
+
+            //printf("  %s[%3d] clip[%1d] Y:%3d..%3d, X:%3d..%3d\n", layerNames[layer], IPPU.CurrentLine, clip, GFX.StartY, GFX.EndY, p[layer].Left[clip], p[layer].Right[clip]);
+
+            // select color math function:
+            int i = 0;
+            if (enableMath) {
+                if (!Settings.Transparency)
+                    i = 0;
+                else {
+                    //bool colorSub  = (Memory.FillRAM[0x2131] & 0x80);
+                    i = (Memory.FillRAM[0x2131] & 0x80) ? 4 : 1;
+
+                    //bool colorHalf = (Memory.FillRAM[0x2131] & 0x40);
+                    if (Memory.FillRAM[0x2131] & 0x40) {
+                        i++;
+                        if (Memory.FillRAM[0x2130] & 2)
+                            i++;
+                    }
+                    if (IPPU.MaxBrightness != 0xf) {
+                        if (i == 1)
+                            i = 7;
+                        else if (i == 3)
+                            i = 8;
+                    }
                 }
             }
+
+            PpuxLineMainMath[i](
+                p[layer].Left[clip], p[layer].Right[clip],
+                layer,
+                mc, md,
+                sc, sd,
+                xc, xd, xr
+            );
         }
     }
 }
