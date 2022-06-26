@@ -74,28 +74,49 @@ int main(void) {
 #endif
 
     // build the test drawlists:
-    d = cmd;
-    d += 2;
-    d = emit_string(d, "bg1p0");
-    s = (d - cmd) * sizeof(uint16_t);
+    uint32_t da = 0xFF020000;
+    uint16_t *dl = cmd;
+    d = dl + 1;
+    d = emit_string(d, "bg2p0");
     // write the size:
-    d = cmd;
-    *d++ = s & 0xFF;
-    *d++ = (s >> 8) & 0xFF;
+    *dl = (d - (dl + 1)) * sizeof(uint16_t);
 
     // send:
-    write_core_memory(0xFF020000, (uint8_t*)cmd, s);
+    write_core_memory(da, (uint8_t*)cmd, (d - cmd) * sizeof(uint16_t));
+    da += 2048;
+
+    dl = cmd;
+    d = dl + 1;
+    d = emit_string(d, "bg2p1");
+    // write the size:
+    *dl = (d - (dl + 1)) * sizeof(uint16_t);
+
+    // send:
+    write_core_memory(da, (uint8_t*)cmd, (d - cmd) * sizeof(uint16_t));
 
     // jump table:
     uint8_t  jt[32768];
     uint8_t *jd = jt;
     uint32_t js = 0;
-    for (uint16_t y_offs = 0; y_offs < 240; y_offs += 12) {
-        for (uint16_t x_offs = 0; x_offs < 256; x_offs += 24) {
+    for (uint16_t y_offs = 0; y_offs <= 240 - 12; y_offs += 24) {
+        for (uint16_t x_offs = 0; x_offs <= 256 - 32; x_offs += 32) {
             *jd++ = 1 & 0xFF;
             *jd++ = (1 >> 8) & 0xFF;         // drawlist 1
-            *jd++ = BG1 | 0x80;              // layer (draw to MAIN not SUB)
+            *jd++ = BG2 | 0x80;              // layer (draw to MAIN not SUB)
             *jd++ = 0;                       // priority
+            *jd++ = x_offs & 0xFF;
+            *jd++ = (x_offs >> 8) & 0xFF;    // x_offset
+            *jd++ = y_offs & 0xFF;
+            *jd++ = (y_offs >> 8) & 0xFF;    // y_offset
+            js += 8;
+        }
+    }
+    for (uint16_t y_offs = 12; y_offs <= 240 - 12; y_offs += 24) {
+        for (uint16_t x_offs = 0; x_offs <= 256 - 32; x_offs += 32) {
+            *jd++ = 2 & 0xFF;
+            *jd++ = (2 >> 8) & 0xFF;         // drawlist 1
+            *jd++ = BG2 | 0x80;              // layer (draw to MAIN not SUB)
+            *jd++ = 1;                       // priority
             *jd++ = x_offs & 0xFF;
             *jd++ = (x_offs >> 8) & 0xFF;    // x_offset
             *jd++ = y_offs & 0xFF;
@@ -106,5 +127,6 @@ int main(void) {
     // end of list:
     *jd++ = 0 & 0xFF;
     *jd++ = (0 >> 8) & 0xFF;
+    js += 2;
     write_core_memory(0xFFFFE000, jt, js);
 }
