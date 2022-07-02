@@ -1,0 +1,250 @@
+suffixes:
+.b = byte        ( 8-bit)
+.w = word        (16-bit)
+.s = sesqui-word (24-bit)
+.d = double-word (32-bit)
+
+s uint32[maxstack]
+
+func_memory uint8[...]
+    read-only memory containing function code and data
+func_tbl   uint32[...]
+    table of uint32 addresses of functions in func_memory; CALL supplies index into this table
+local_memory uint8[...]
+
+
+opcodes:
+    $00[0]: HALT
+
+    $01[0]: NOP
+    $02 - reserved
+
+    $03[0]: RET
+    $04[1]: CALL.b func_tbl_index.b
+    $05[2]: CALL.w func_tbl_index.w
+    $06[3]: CALL.s func_tbl_index.s
+    $07[4]: CALL.d func_tbl_index.d
+
+    $08[0]: DUP
+    $09[0]: SWAP
+
+    $0a[0]: SX.w    ; sign extend  byte-> word
+    $0b[0]: SX.s    ; sign extend  word->sword
+    $0c[0]: SX.d    ; sign extend sword->dword
+    $0d[0]: TRUNC.b ; truncate to  8-bit (zero bits  8..31)
+    $0e[0]: TRUNC.w ; truncate to 16-bit (zero bits 16..31)
+    $0f[0]: TRUNC.s ; truncate to 24-bit (zero bits 24..31)
+
+    $10[0]: AND
+    $11[0]: OR
+    $12[0]: XOR
+    $13[0]: NOT
+    $14[0]: ASL ; arithmetic shift left
+    $15[0]: ASR ; arithmetic shift right
+    $16[0]: LSR ;    logical shift right
+    $17[0]: NEG
+    $18[0]: ADD
+    $19[0]: SUB
+    $1a[0]: MUL
+    $1b[0]: DIV
+    $1c[0]: REM
+    $1d
+    $1e
+    $1f
+
+    // forward branching only...
+    $20
+    $21
+    $22
+    $23
+    $24
+    $25
+    $26
+    $27
+    $28
+    $29
+    $2a
+    $2b
+    $2c
+    $2d
+    $2e
+    $2f
+
+    $30
+    $31
+    $32
+    $33
+    $34
+    $35
+    $36
+    $37
+    $38
+    $39
+    $3a
+    $3b
+    $3c
+    $3d
+    $3e
+    $3f
+
+    $40
+    $41
+    $42
+    $43
+    $44
+    $45
+    $46
+    $47
+    $48
+    $49
+    $4a
+    $4b
+    $4c
+    $4d
+    $4e
+    $4f
+
+    $50
+    $51
+    $52
+    $53
+    $54
+    $55
+    $56
+    $57
+    $58
+    $59
+    $5a
+    $5b
+    $5c
+    $5d
+    $5e
+    $5f
+
+    $60
+    $61
+    $62
+    $63
+    $64
+    $65
+    $66
+    $67
+    $68
+    $69
+    $6a
+    $6b
+    $6c
+    $6d
+    $6e
+    $6f
+
+    $7n[1]: PUSH.d $ffff_fff0+n ; for n in [0..f], push the value $ffff_fff0+n (aka -16 to -1)
+    $8n[1]: PUSH.d $0000_0000+n ; for n in [0..f], push the value $0000_0000+n (aka   0 to 15)
+
+    $90
+    $91
+    $92
+    $93
+    $94
+    $95
+    $96
+    $97
+    $98
+    $99
+    $9a
+    $9b
+    $9c
+    $9d
+    $9e
+    $9f
+
+    $a0
+    $a1
+    $a2
+    $a3
+    $a4
+    $a5
+    $a6
+    $a7
+    $a8
+    $a9
+    $aa
+    $ab
+    $ac
+    $ad
+    $ae
+    $af
+
+    $b0
+    $b1
+    $b2
+    $b3
+    $b4
+    $b5
+    $b6
+    $b7
+    $b8
+    $b9
+    $ba
+    $bb
+    $bc
+    $bd
+    $be
+    $bf
+
+    $b0+n[1*(n+1)]: PUSH.b imm.b[0..n+1] ; for n in [0..7], push n+1 values, each value is 1 byte
+    $b8+n[2*(n+1)]: PUSH.w imm.w[0..n+1] ; for n in [0..7], push n+1 values, each value is 2 bytes (word)
+    $c0+n[3*(n+1)]: PUSH.s imm.s[0..n+1] ; for n in [0..7], push n+1 values, each value is 3 bytes (sesquiword)
+    $c8+n[4*(n+1)]: PUSH.d imm.d[0..n+1] ; for n in [0..7], push n+1 values, each value is 4 bytes (doubleword)
+
+    $e0[2]: LOCLOADW.b index.w   ; load  byte from local memory at index.w
+    $e1[2]: LOCLOADW.w index.w   ; load  word from local memory at index.w
+    $e2[2]: LOCLOADW.s index.w   ; load sword from local memory at index.w
+    $e3[2]: LOCLOADW.d index.w   ; load dword from local memory at index.w
+    $e4[4]: LOCLOADD.b index.d   ; load  byte from local memory at index.d
+    $e5[4]: LOCLOADD.w index.d   ; load  word from local memory at index.d
+    $e6[4]: LOCLOADD.s index.d   ; load sword from local memory at index.d
+    $e7[4]: LOCLOADD.d index.d   ; load dword from local memory at index.d
+    $e8[2]: LOCSTOREW.b index.w  ; pop from stack and store  byte to local memory at index.w
+    $e9[2]: LOCSTOREW.w index.w  ; pop from stack and store  word to local memory at index.w
+    $ea[2]: LOCSTOREW.s index.w  ; pop from stack and store sword to local memory at index.w
+    $eb[2]: LOCSTOREW.d index.w  ; pop from stack and store dword to local memory at index.w
+    $ec[4]: LOCSTORED.b index.d  ; pop from stack and store  byte to local memory at index.d
+    $ed[4]: LOCSTORED.w index.d  ; pop from stack and store  word to local memory at index.d
+    $ee[4]: LOCSTORED.s index.d  ; pop from stack and store sword to local memory at index.d
+    $ef[4]: LOCSTORED.d index.d  ; pop from stack and store dword to local memory at index.d
+
+    $f0[2]: SPCLOAD.b space.w ; load value as  byte from address (#0) in memory space space.w
+    $f1[2]: SPCLOAD.w space.w ; load value as  word from address (#0) in memory space space.w
+    $f2[2]: SPCLOAD.s space.w ; load value as sword from address (#0) in memory space space.w
+    $f3[2]: SPCLOAD.d space.w ; load value as dword from address (#0) in memory space space.w
+    $f4
+    $f5
+    $f6
+    $f7
+    $f8
+    $f9
+    $fa
+    $fb
+    $fb
+    $fd
+    $fe
+    $ff
+
+ppux state: uint32[256]
+    $00.b: target layer
+        BG1 = 0,
+        BG2 = 1,
+        BG3 = 2,
+        BG4 = 3,
+        OAM = 4,
+        COL = 5,
+    $01.b: target priority
+        BG1..4: [0..1]
+        OAM:    [0..3]
+        COL:    [0]
+    $02.b: target depth comparison function
+        GTE = 0,
+        GT  = 1,
+    $03.b:
+
