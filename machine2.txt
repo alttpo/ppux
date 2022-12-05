@@ -1,0 +1,54 @@
+suffixes:
+.b = byte        ( 8-bit)
+.w = word        (16-bit)
+.s = sesqui-word (24-bit)
+.d = double-word (32-bit)
+
+s uint32[maxstack]
+
+func_memory uint8[...]
+    read-only memory containing function code
+func_tbl   uint32[...]
+    table of uint32 addresses of functions in func_memory; CALL supplies index into this table
+data_memory uint8[...]
+
+r0..r15 = 16x 32-bit registers
+
+
+instruction encoding:
+    struct instruction {
+        // classes:
+        enum opclass {
+            JMP,
+            ALU,
+            LD,
+            ST,
+        }
+
+        unsigned opclass:3;
+        unsigned hasimm:1;
+        unsigned operation:4;
+    };
+
+    enum jmp_opcode {
+        JMP_RET,
+
+    };
+
+ppux state: uint32[256]
+    $00.b: target layer
+        BG1 = 0,
+        BG2 = 1,
+        BG3 = 2,
+        BG4 = 3,
+        OAM = 4,
+        COL = 5,
+    $01.b: target priority
+        BG1..4: [0..1]
+        OAM:    [0..3]
+        COL:    [0]
+    $02.b: target depth comparison function
+        GTE = 0,
+        GT  = 1,
+    $03.b:
+
